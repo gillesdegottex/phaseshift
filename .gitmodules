@@ -1,0 +1,18 @@
+[submodule "ext/Catch2"]
+	path = ext/Catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "ext/eigen"]
+	path = ext/eigen
+	url = https://gitlab.com/libeigen/eigen.git
+[submodule "ext/libsndfile"]
+	path = ext/libsndfile
+	url = https://github.com/libsndfile/libsndfile.git
+[submodule "ext/fftscarf"]
+	path = ext/fftscarf
+	url = https://gitlab.com/gillesdegottex/fftscarf.git
+[submodule "ext/acbench"]
+	path = ext/acbench
+	url = https://github.com/gillesdegottex/acbench.git
+[submodule "ext/cpptopdb"]
+	path = ext/cpptopdb
+	url = https://github.com/gillesdegottex/cpptopdb.git
