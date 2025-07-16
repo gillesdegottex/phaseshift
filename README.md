@@ -98,7 +98,7 @@ cpplint from Google
 
 ## Legal
 
-Copyright (c) 2024 Gilles Degottex gilles.degottex@gmail.com
+Copyright (c) 2024-2025 Gilles Degottex gilles.degottex@gmail.com
 
 Licensed under Apache 2.0 License.
 See the LICENSE.txt file at the root of this repository.
