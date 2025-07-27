@@ -15,7 +15,7 @@ void phaseshift::ab::ol::proc_frame(const phaseshift::vector<float>& in, const p
     (void)win_center_idx;
     PHASESHIFT_PROF(dbg_proc_frame_time.start();)
 
-    PHASESHIFT_PROF(dbg_proc_frame_time.end();)
+    PHASESHIFT_PROF(dbg_proc_frame_time.end(0.0f);)
 }
 
 phaseshift::ab::ol::ol() {

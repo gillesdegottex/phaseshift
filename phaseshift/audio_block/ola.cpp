@@ -19,7 +19,7 @@ void phaseshift::ab::ola::proc_frame(const phaseshift::vector<float>& in, phases
     out = in;
     out *= win();  // TODO(GD) SPEEDUP Using Eigen
 
-    PHASESHIFT_PROF(dbg_proc_frame_time.end();)
+    PHASESHIFT_PROF(dbg_proc_frame_time.end(0.0f);)
 }
 
 phaseshift::ab::ola::ola() {
