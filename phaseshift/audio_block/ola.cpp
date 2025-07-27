@@ -129,15 +129,15 @@ void phaseshift::ab::ola::flush(phaseshift::ringbuffer<float>* pout) {
     assert((m_frame_rolling.size() < winlen()) && "phaseshift::ab::ola::flush: There are more samples in the internal buffer than winlen. Have you called proc(.) at least once before calling flush(.)?");
 
     // We know here that there are not enough samples to fill a full window
-    // The chosen strategy in the following is to process extra uncomplete windows, as long as the middle of window lands before or on the very last sample of the input signal.
-    // This implies also to flush timestep samples, except for the last iteration
+    // The chosen strategy in the following is to process extra uncomplete windows, as long as the number of samples to flush is smaller than the timestep.
+    // This implies also to flush timestep samples, except for the last iteration, where is less or equal than timestep.
     int nb_samples_to_flush = m_timestep;
     do {
         // Add trailing zeros to fill a full window
         m_frame_rolling.push_back(0.0f, winlen() - m_frame_rolling.size());
 
         // Flush timestep samples, except for the last iteration
-        if (nb_samples_to_flush_total <= static_cast<int>(winlen()/2+m_timestep)) {  // TODO(GD) Not sure of winlen()/2 anymore
+        if (nb_samples_to_flush_total <= m_timestep) {
             nb_samples_to_flush = nb_samples_to_flush_total;
             m_status.last_frame = true;
         }
