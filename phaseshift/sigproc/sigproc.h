@@ -192,13 +192,11 @@ namespace phaseshift {
         return sum;
     }
 
-    // Rotate/Shift bins for delay equal to the half of the array's size
-    // (similar to numpy.fft.fftshift)
-    template<class array_type>
-    inline void shift_half_size(array_type* parray) {
-        array_type& array = *parray;
-        for (int k=0; k < static_cast<int>(array.size())/2; ++k) {
-            std::swap(array[k], array[(k+array.size()/2)%array.size()]);
+    //! Sigmoid transition
+    template<typename array_t>
+    inline void sigmoid(array_t* parray, float cf, float vc) {
+        for (int k=0; k < parray->size(); ++k) {
+            (*parray)[k] = 1.0f/(1.0f+std::exp(-(k-cf)/vc));
         }
     }
 
@@ -217,6 +215,15 @@ namespace phaseshift {
         }
     }
 
+    // Rotate/Shift bins for delay equal to the half of the array's size
+    // (similar to numpy.fft.fftshift)
+    template<class array_type>
+    inline void shift_half_size(array_type* parray) {
+        array_type& array = *parray;
+        for (int k=0; k < static_cast<int>(array.size())/2; ++k) {
+            std::swap(array[k], array[(k+array.size()/2)%array.size()]);
+        }
+    }
 
     //! Shift the signal by nbsample samples.
     template<class array_type>
