@@ -217,25 +217,25 @@ namespace phaseshift {
         }
     }
 
-    // //! Shift the signal by nbsample samples.
-    // //  If nbsample is positive, the signal is shifted to the left.
-    // //  Negative nbsample is not yet implemented.
-    // template<class array_type>
-    // inline void timeshift_sig(array_type* parray, int nbsample, float empty_value = 0.0f) {
-    //     if (nbsample == 0.0f)
-    //         return;
-    //     assert(nbsample > 0 && "phaseshift::timeshift_sig: Negative nbsample is not yet implemented.");
 
-    //     float* psig_prev_dst = parray->data();
-    //     float* psig_prev_src = parray->data() + nbsample;
-    //     int prev_win_shift = 0;
-    //     for (; prev_win_shift < parray->size()-nbsample; ++prev_win_shift) {
-    //         *psig_prev_dst++ = *psig_prev_src++;
-    //     }
-    //     for (; prev_win_shift < parray->size(); ++prev_win_shift) {
-    //         *psig_prev_dst++ = empty_value;
-    //     }
-    // }
+    //! Shift the signal by nbsample samples.
+    template<class array_type>
+    inline void timeshift_sig(array_type* parray, int delay) {
+        if (delay == 0)
+            return;
+
+        if ((-delay) < 0) {
+            for (int n=parray->size()-1; n >= delay; --n) {
+                (*parray)[n] = (*parray)[n-delay];
+            }
+            std::memset(parray->data(), 0, sizeof(float)*delay);
+        } else {
+            for (int n=0; n < parray->size() - (-delay); ++n) {
+                (*parray)[n] = (*parray)[n+(-delay)];
+            }
+            std::memset(parray->data()+(parray->size() - (-delay)), 0, sizeof(float)*(-delay));
+        }
+    }
 
     //! nbsamplef : Number of sample to shift the signal. Can be non-integer.
     template<class array_type>
