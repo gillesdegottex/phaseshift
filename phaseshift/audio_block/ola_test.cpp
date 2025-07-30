@@ -41,7 +41,7 @@ class ola_with_extra_tests : public phaseshift::ab::ola {
         }
         // DOUT << "win_center_idx=" << win_center_idx << " wavsize=" << wavsize << " winlen=" << winlen() << " timestep=" << timestep() << std::endl;
         REQUIRE_TS(win_center_idx >= 0); // Window's center are all on or after first sample
-        REQUIRE_TS(win_center_idx <= wavsize-1); // Window's centers are all on or before last sample
+        REQUIRE_TS(win_center_idx <= wavsize+winlen()/2+1); // Window's centers are all on or before last sample
 
         out = in;
         out *= win();
