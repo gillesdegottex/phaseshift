@@ -39,6 +39,9 @@ namespace phaseshift {
             virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ab::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx);
 
          private:
+            bool m_first_frame_at_t0 = true;  // Copy from builer for reset()
+            int m_extra_samples_to_skip = 0;  // Copy from builer for reset()
+            
             proc_status m_status;
 
             phaseshift::ringbuffer<float> m_frame_rolling;
@@ -66,6 +69,8 @@ namespace phaseshift {
             inline int winlen() const {return m_win.size();}
             inline const phaseshift::vector<float>& win() const {return m_win;}
             inline int timestep() const {return m_timestep;}
+
+            virtual void reset();
 
             virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 

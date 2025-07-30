@@ -44,6 +44,10 @@ namespace phaseshift {
         //! The sampling frequency of the processed signal. Of float type, because it will most often end up being converted to float anyway.
         inline float fs() const {return m_fs;}
 
+        virtual void reset() {
+            proc_time_reset();
+        }
+
         virtual void proc(const phaseshift::ringbuffer<float>& in) {
             proc_time_start();
 

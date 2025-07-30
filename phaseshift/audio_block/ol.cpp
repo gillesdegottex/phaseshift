@@ -105,6 +105,25 @@ void phaseshift::ab::ol::flush() {
     } while (nb_samples_to_flush_total > 0);
 }
 
+void phaseshift::ab::ol::reset() {
+    m_frame_rolling.clear();
+    m_frame_input.clear();
+
+    if (m_first_frame_at_t0) {
+        m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
+        m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
+    } else {
+        m_first_frame_at_t0_samples_to_skip = 0;
+    }
+    m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
+
+    m_status.first_frame = true;
+    m_status.last_frame = false;
+    m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
+    m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
+    m_status.flushing = false;
+    m_win_center_idx = 0;
+}
 
 phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
     build_time_start();
@@ -119,34 +138,23 @@ phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
 
     if (m_winlen < 0)
         m_winlen = static_cast<int>(fs()*0.010);
-    assert((m_winlen > 0) && "winlen has to be >0");
+    assert((m_winlen > 0) && "phaseshift::ab::ol_builder::build: winlen has to be >0");
     assert((m_winlen > m_timestep) && "phaseshift::ab::ol_builder::build: time step has to be smaller or equal to window's length");
 
     pab->m_frame_rolling.resize_allocation(m_winlen);
     pab->m_frame_rolling.clear();
 
     pab->m_frame_input.resize_allocation(m_winlen);
-    pab->m_frame_input.resize(m_winlen);
     pab->m_frame_input.clear();
 
     pab->m_win.resize_allocation(m_winlen);
-    phaseshift::win_hamming(&(pab->m_win), m_winlen);                                       // Default to Hamming windows
+    phaseshift::win_hamming(&(pab->m_win), m_winlen);           // Default to Hamming windows
 
-    if (m_first_frame_at_t0) {
-        pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
-        pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);
-    } else {
-        pab->m_first_frame_at_t0_samples_to_skip = 0;
-    }
-    pab->m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
+    pab->m_first_frame_at_t0 = m_first_frame_at_t0;
+    pab->m_extra_samples_to_skip = m_extra_samples_to_skip;
     pab->m_extra_samples_to_flush = m_extra_samples_to_flush;
 
-    pab->m_status.first_frame = true;
-    pab->m_status.last_frame = false;
-    pab->m_status.skipping_samples_at_start = pab->m_first_frame_at_t0_samples_to_skip > 0;
-    pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
-    pab->m_status.flushing = false;
-    pab->m_win_center_idx = 0;
+    pab->reset();
 
     build_time_end();
     return pab;
