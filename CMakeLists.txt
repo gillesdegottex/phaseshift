@@ -25,9 +25,6 @@ option(PHASESHIFT_SUPPORT_SNDFILE_LOCAL "Support libsndfile using local build" O
 
 set(PHASESHIFT_BUILD_ARCH "undefined" CACHE STRING "The string identifying the architecture of the build, in a broad sense: it often contains os, machine arch, interpreter version, etc. For python SDK it is the SOABI tag.")
 
-message(STATUS "CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME})
-message(STATUS "CMAKE_SYSTEM_VERSION: " ${CMAKE_SYSTEM_VERSION})
-message(STATUS "CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR})
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   set(PHASESHIFT_BUILD_ARCH_DEFAULT "macos-${CMAKE_SYSTEM_VERSION}")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -35,6 +32,9 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(PHASESHIFT_BUILD_ARCH_DEFAULT "win-${CMAKE_SYSTEM_PROCESSOR}")  # TODO
 else()
+  message(WARNING "  CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME})
+  message(WARNING "  CMAKE_SYSTEM_VERSION: " ${CMAKE_SYSTEM_VERSION})
+  message(WARNING "  CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR})
   message(FATAL_ERROR "Unsupported system: ${CMAKE_SYSTEM_NAME}")
 endif()
 
