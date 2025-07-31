@@ -23,6 +23,33 @@ option(PHASESHIFT_DEV_TESTS "Build the tests" OFF)
 option(PHASESHIFT_SUPPORT_SNDFILE "Support libsndfile" OFF)
 option(PHASESHIFT_SUPPORT_SNDFILE_LOCAL "Support libsndfile using local build" OFF)
 
+set(PHASESHIFT_BUILD_ARCH "undefined" CACHE STRING "The string identifying the architecture of the build, in a broad sense: it often contains os, machine arch, interpreter version, etc. For python SDK it is the SOABI tag.")
+
+message(STATUS "CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME})
+message(STATUS "CMAKE_SYSTEM_VERSION: " ${CMAKE_SYSTEM_VERSION})
+message(STATUS "CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR})
+message(STATUS "CMAKE_C_COMPILER_TARGET: " ${CMAKE_C_COMPILER_TARGET})
+message(STATUS "CMAKE_CXX_COMPILER_TARGET: " ${CMAKE_CXX_COMPILER_TARGET})
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set(PHASESHIFT_BUILD_ARCH_DEFAULT "macos-${CMAKE_SYSTEM_VERSION}")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(PHASESHIFT_BUILD_ARCH_DEFAULT "linux-${CMAKE_SYSTEM_PROCESSOR}")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  set(PHASESHIFT_BUILD_ARCH_DEFAULT "win-${CMAKE_SYSTEM_VERSION}")  # TODO
+else()
+  message(FATAL_ERROR "Unsupported system: ${CMAKE_SYSTEM_NAME}")
+endif()
+
+if (${PHASESHIFT_BUILD_ARCH} STREQUAL "undefined")
+  set(PHASESHIFT_BUILD_ARCH ${PHASESHIFT_BUILD_ARCH_DEFAULT})
+else()
+  message(STATUS "  PHASESHIFT_BUILD_ARCH was given during cmake configuration.")
+endif()
+message(STATUS "  Architecture: " ${PHASESHIFT_BUILD_ARCH} " (-DPHASESHIFT_BUILD_ARCH=<build_arch>)")
+set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_BUILD_ARCH=\"${PHASESHIFT_BUILD_ARCH}\")
+
+
 # Optimisation ----------------------------------------------------------------
 
 if(NOT CMAKE_BUILD_TYPE)
