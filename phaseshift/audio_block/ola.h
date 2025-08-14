@@ -30,6 +30,13 @@ namespace phaseshift {
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
                 bool flushing;
+                inline std::string to_string() const {
+                    return "first_frame=" + std::to_string(first_frame) +
+                           " last_frame=" + std::to_string(last_frame) +
+                           " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
+                           " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
+                           " flushing=" + std::to_string(flushing);
+                }
             };
 
          protected:

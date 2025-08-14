@@ -224,6 +224,20 @@ namespace phaseshift {
         return bw_hz;
     }
 
+    inline void window_mainlobe_for_interp(float fs, const phaseshift::vector<float>& win_rfft, float* freq2bin, phaseshift::vector<float>* amps_db) {
+        assert(fs > 0.0f);
+
+        int dftlen = (win_rfft.size()-1)*2;
+
+        *freq2bin = dftlen/fs;
+
+        amps_db->resize_allocation(win_rfft.size());
+        amps_db->resize(win_rfft.size());
+        for (int k=0; k<win_rfft.size(); ++k) {
+            (*amps_db)[k] = phaseshift::lin2db(std::abs(win_rfft[k]));
+        }
+    }
+
 }  // namespace phaseshift
 
 #endif  // PHASESHIFT_SIGPROC_WINDOW_FUNCTIONS_H_

@@ -63,6 +63,13 @@ namespace phaseshift {
         return std::pow(static_cast<T>(10.0), value*static_cast<T>(0.05));  // 0.05=1.0/20.0
     }
 
+    inline float hz2st(float hz) {
+        return 12.0f * std::log2(hz/440.0f);
+    }
+    inline float st2hz(float st) {
+        return 440.0f * std::pow(2.0f, st/12.0f);
+    }
+
     inline int nextpow2(int winlen) {  // TODO(GD) Move to fftscarf
         assert(winlen > 0);
         int dftlen = std::pow<int>(2, static_cast<int>(std::ceil(std::log2f(winlen))));

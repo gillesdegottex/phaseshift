@@ -59,6 +59,20 @@ namespace phaseshift {
         // TODO(GD) Move to acbench?
 
         template<typename array_type>
+        inline void binaryfile_write_generic_int32(const std::string& filepath, const array_type& array, std::ios_base::openmode mode = std::ios::out | std::ios::binary) {
+            assert(filepath.size() > 0);
+
+            std::ofstream outfile(filepath, mode);
+            assert(outfile.is_open());
+
+            for (int n = 0; n < int(array.size()); ++n) {
+                int value = static_cast<float>(array[n]);
+                outfile.write(reinterpret_cast<char*>(&value), sizeof(float));
+            }
+            outfile.close();
+        }
+
+        template<typename array_type>
         inline void binaryfile_write_generic_float32(const std::string& filepath, const array_type& array, std::ios_base::openmode mode = std::ios::out | std::ios::binary) {
             assert(filepath.size() > 0);
 
@@ -94,6 +108,9 @@ namespace phaseshift {
         }
 
         // std::vector
+        inline void binaryfile_write(const std::string& filepath, const std::vector<int>& array, std::ios_base::openmode mode = std::ios::out | std::ios::binary) {
+            phaseshift::dev::binaryfile_write_generic_int32(filepath, array, mode);
+        }
         template<typename value_type>
         inline void binaryfile_write(const std::string& filepath, const std::vector<std::complex<value_type>>& array, std::ios_base::openmode mode = std::ios::out | std::ios::binary) {
             phaseshift::dev::binaryfile_write_generic_complex64(filepath, array, mode);
