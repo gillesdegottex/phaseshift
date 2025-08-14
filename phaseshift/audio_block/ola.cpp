@@ -93,7 +93,6 @@ void phaseshift::ab::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_s
 }
 
 void phaseshift::ab::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-    assert(pout->size_max() >= m_timestep && "phaseshift::ab::ola::proc: There is not enough space in the output buffer.");  // TODO(GD) uh? sure of the condition?
     proc_time_start();
 
     int in_n = 0;
@@ -108,6 +107,8 @@ void phaseshift::ab::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshi
             m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
             m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
 
+            assert((pout->size() + m_timestep <= pout->size_max()) && "phaseshift::ab::ola::proc: There is not enough space in the output buffer.");  // TODO(GD) uh? sure of the condition?
+
             proc_win(pout, m_timestep);
         }
     }
@@ -116,8 +117,6 @@ void phaseshift::ab::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshi
 }
 
 void phaseshift::ab::ola::flush(phaseshift::ringbuffer<float>* pout) {
-
-    assert(pout->size_max() >= m_frame_rolling.size() && "phaseshift::ab::ola::flush: There is not enough space in the output buffer.");
 
     if (m_frame_rolling.size() == 0)
         return;
