@@ -57,6 +57,10 @@ namespace phaseshift {
             static int get_nbchannels(const std::string& file_path);
             static int get_bitrate(const std::string& file_path);
 
+            inline void reset() {
+                assert(false && "Not implemented");
+            }
+
             //! Return the number of frames field of the `SF_INFO` structure.
             inline phaseshift::globalcursor_t length() const {return m_sf_info.frames;}
             inline float duration() const {return length()/fs();}
@@ -138,6 +142,10 @@ namespace phaseshift {
             static int write(const std::string& file_path, float fs, const ringbuffer& pin, int chunk_size = 1024, int bitrate=-1);
             template<class ringbuffer>
             static int write(const std::string& file_path, float fs, const std::vector<ringbuffer*>& ins, int chunk_size = 1024, int bitrate=-1);
+
+            inline void reset() {
+                assert(false && "Not implemented");
+            }
 
             //! Return the number of frames written
             inline phaseshift::globalcursor_t length() const  {return m_length;}

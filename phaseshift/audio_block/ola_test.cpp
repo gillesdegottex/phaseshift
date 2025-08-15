@@ -196,3 +196,37 @@ TEST_CASE("audio_block_ola_multithread", "[audio_block_ola_multithread]") {
         thread.join();
     }
 }
+
+TEST_CASE("audio_block_ola_reset", "[audio_block_ola_reset]") {
+    phaseshift::dev::check_compilation_options();
+
+    std::string file_path_in = std::string(PHASESHIFT_TEST_SOURCE_DIR)+"/test_data/wav/arctic_a0204.wav";
+
+    float fs = phaseshift::ab::sndfile_reader::get_fs(file_path_in);
+    phaseshift::ringbuffer<float> file_in;
+    file_in.resize_allocation(10*fs);
+    phaseshift::ab::sndfile_reader::read(file_path_in, &file_in);
+
+    phaseshift::ab::ola_builder builder;
+    builder.set_fs(fs);
+    builder.set_winlen(int(fs*0.020));
+    builder.set_timestep(int(fs*0.005));
+    phaseshift::ab::ola* pab = builder.build();
+
+    phaseshift::ringbuffer<float> out1;
+    out1.resize_allocation(file_in.size());
+    phaseshift::ringbuffer<float> out2;
+    out2.resize_allocation(file_in.size());
+
+    pab->proc(file_in, &out1);
+    pab->flush(&out1);
+
+    pab->reset();
+
+    pab->proc(file_in, &out2);
+    pab->flush(&out2);
+
+    REQUIRE_TS(phaseshift::dev::signals_equal_strictly(out1, out2));
+
+    delete pab;
+}
