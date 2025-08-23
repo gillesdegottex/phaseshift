@@ -25,8 +25,13 @@ option(PHASESHIFT_SUPPORT_SNDFILE_LOCAL "Support libsndfile using local build" O
 
 set(PHASESHIFT_BUILD_ARCH "undefined" CACHE STRING "The string identifying the architecture of the build, in a broad sense: it often contains os, machine arch, interpreter version, etc. For python SDK it is the SOABI tag.")
 
+message(WARNING "  CMAKE_SYSTEM_VERSION: " ${CMAKE_SYSTEM_VERSION})
+message(WARNING "  MACOSX_DEPLOYMENT_TARGET: " ${MACOSX_DEPLOYMENT_TARGET})
+message(WARNING "  CMAKE_OSX_DEPLOYMENT_TARGET: " ${CMAKE_OSX_DEPLOYMENT_TARGET})
+
+
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  set(PHASESHIFT_BUILD_ARCH_DEFAULT "macos-${CMAKE_SYSTEM_VERSION}")
+  set(PHASESHIFT_BUILD_ARCH_DEFAULT "macos-${CMAKE_SYSTEM_VERSION}")  # CMAKE_SYSTEM_VERSION is Darwin version
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(PHASESHIFT_BUILD_ARCH_DEFAULT "linux-${CMAKE_SYSTEM_PROCESSOR}")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
