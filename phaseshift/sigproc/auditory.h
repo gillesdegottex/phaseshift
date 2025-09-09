@@ -23,7 +23,7 @@ inline float hz2mel(float freq) {
     if (freq < knee) {
         return lin * freq;
     } else {
-        constexpr float log_coef = 27.0f / std::log(6.4f);
+        constexpr float log_coef = 27.0f / 1.8562979903656263f;  // std::log(6.4f)=1.8562979903656263
         constexpr float start = knee * lin;
         return start + log_coef * std::log(freq/knee);
     }
@@ -32,7 +32,7 @@ inline float mel2hz(float mel) {
     constexpr float knee = 1000.0f;
     constexpr float lin_inv = 200.0f / 3.0f;
     constexpr float start = knee / lin_inv;
-    constexpr float log_coef_inv = std::log(6.4f) / 27.0f;
+    constexpr float log_coef_inv = 1.8562979903656263f / 27.0f;  // std::log(6.4f)=1.8562979903656263
 
     // If higher than knee, use log scale, otherwise just keep linear scale
     if (mel > start) {
