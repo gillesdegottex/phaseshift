@@ -25,9 +25,9 @@ inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<
     // TODO(GD) Remove extra copy by providing the buffer to the phaseshift::ringbuffer ctor
     in->resize_allocation(_in.size());
     if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 32) {
-        in->push_back(static_cast<const float*>(_in.data()), _in.size());
+        in->push_back(static_cast<float*>(_in.data()), _in.size());
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 64) {
-        in->push_back(static_cast<const double*>(_in.data()), _in.size());
+        in->push_back(static_cast<double*>(_in.data()), _in.size());
     } else {
         assert(_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float  && "Only float32 or float64 types supported.");
         assert(((_in.dtype().bits == 32) || (_in.dtype().bits == 64)) && "Only float32 or float64 types supported.");
@@ -35,7 +35,7 @@ inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<
     }
 }
 
-inline nb::ndarray<nb::numpy, const float> ringbuffer2ndarray(const phaseshift::ringbuffer<float>& rb) {
+inline nb::ndarray<nb::numpy, float> ringbuffer2ndarray(const phaseshift::ringbuffer<float>& rb) {
     // TODO(GD) Well... I hope there is something simpler... ask on github
     // TODO(GD) 1) Steal the buffer of the output ringbuffer?
     float* data = new float[rb.size()];
@@ -44,7 +44,7 @@ inline nb::ndarray<nb::numpy, const float> ringbuffer2ndarray(const phaseshift::
     // https://nanobind.readthedocs.io/en/latest/ndarray.html
     nb::capsule numpy_array_owner(data, [](void *p) noexcept {delete[] (float *) p;});
     size_t shape[1] = { static_cast<size_t>(rb.size()) };
-    return nb::ndarray<nb::numpy, const float>(data, 1, shape, numpy_array_owner);
+    return nb::ndarray<nb::numpy, float>(data, 1, shape, numpy_array_owner);
 }
 
 inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<std::complex<float>>* in) {
