@@ -25,9 +25,9 @@ inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<
     // TODO(GD) Remove extra copy by providing the buffer to the phaseshift::ringbuffer ctor
     in->resize_allocation(_in.size());
     if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 32) {
-        in->push_back(static_cast<float*>(_in.data()), _in.size());
+        in->push_back(static_cast<const float*>(_in.data()), _in.size());
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 64) {
-        in->push_back(static_cast<double*>(_in.data()), _in.size());
+        in->push_back(static_cast<const double*>(_in.data()), _in.size());
     } else {
         assert(_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float  && "Only float32 or float64 types supported.");
         assert(((_in.dtype().bits == 32) || (_in.dtype().bits == 64)) && "Only float32 or float64 types supported.");
