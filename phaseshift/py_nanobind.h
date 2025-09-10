@@ -21,6 +21,9 @@ namespace nb = nanobind;
 #include <phaseshift/containers/ringbuffer.h>
 #include <phaseshift/containers/vector.h>
 
+// Note: ndarray to something should use intermediate convertions to const types (see ndarray2ringbuffer())
+// Note: something to ndarray should use intermediate convertions to non-const types (see ringbuffer2ndarray())
+
 inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<float>* in) {
     // TODO(GD) Remove extra copy by providing the buffer to the phaseshift::ringbuffer ctor
     in->resize_allocation(_in.size());
@@ -81,7 +84,7 @@ inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<float>* 
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 64) {
         in->resize(_in.size());
         for (int k=0; k < int(_in.size()); ++k) {
-            float real = ((double*)(_in.data()))[k];
+            float real = ((const double*)(_in.data()))[k];
             in->data()[k] = real;
         }
     } else {
@@ -91,7 +94,7 @@ inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<float>* 
     }
 }
 
-inline nb::ndarray<nb::numpy, const float> vector2ndarray(const phaseshift::vector<float>& rb) {
+inline nb::ndarray<nb::numpy, float> vector2ndarray(const phaseshift::vector<float>& rb) {
     // TODO(GD) Well... I hope there is something simpler... ask on github
     // TODO(GD) 1) Steal the buffer of the output ringbuffer
     float* data = new float[rb.size()];
@@ -100,7 +103,7 @@ inline nb::ndarray<nb::numpy, const float> vector2ndarray(const phaseshift::vect
     // https://nanobind.readthedocs.io/en/latest/ndarray.html
     nb::capsule numpy_array_owner(data, [](void *p) noexcept {delete[] (float *) p;});
     size_t shape[1] = { static_cast<size_t>(rb.size()) };
-    return nb::ndarray<nb::numpy, const float>(data, 1, shape, numpy_array_owner);
+    return nb::ndarray<nb::numpy, float>(data, 1, shape, numpy_array_owner);
 }
 
 
