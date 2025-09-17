@@ -207,6 +207,28 @@ namespace phaseshift {
         }
 
         template<typename T2>
+        inline vector& operator+=(const phaseshift::vector<T2>& arr) {
+            assert(size() == arr.size());
+
+            value_type* pdata = m_data;
+            T2* pdata2 = arr.m_data;
+            for (int n=0; n < m_size; ++n)
+                *pdata++ += *pdata2++;
+
+            return *this;
+        }
+        template<typename T2>
+        inline vector& operator-=(const phaseshift::vector<T2>& arr) {
+            assert(size() == arr.size());
+
+            value_type* pdata = m_data;
+            T2* pdata2 = arr.m_data;
+            for (int n=0; n < m_size; ++n)
+                *pdata++ -= *pdata2++;
+
+            return *this;
+        }
+        template<typename T2>
         inline vector& operator*=(const phaseshift::vector<T2>& arr) {
             assert(size() == arr.size());
 
