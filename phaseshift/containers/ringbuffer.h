@@ -37,6 +37,17 @@ namespace phaseshift {
                 push_back(array[n]);
         }
 
+        inline void push_back(const phaseshift::vector<value_type>& v) {
+            push_back(v.data(), v.size());
+        }
+
+        inline void push_back(const phaseshift::vector<value_type>& v, int start, int size) {
+            assert(start >= 0);
+            // assert(size <= v.size() - start);
+            size = std::min(size, v.size() - start);
+            push_back(v.data() + start, size);
+        }
+
         // This case is commented out for being too generic
         // It might be used by mistake instead of the specific and efficient ones here after.
         // template<typename different_value_type>
