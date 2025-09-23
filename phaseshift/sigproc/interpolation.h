@@ -13,6 +13,7 @@
 
 #include <phaseshift/lookup_table.h>
 #include <phaseshift/containers/vector.h>
+#include <phaseshift/sigproc/sigproc.h>
 
 namespace phaseshift {
 
@@ -82,6 +83,36 @@ namespace phaseshift {
             return (1.0f-g)*(*m_pvs)[m_n] + g*(*m_pvs)[m_n+1];
         }
     };
+
+
+    // Parabolic --------------------------------------------------------------
+
+    // This one fit a minima
+    //    The minimum is at coordinate: X = min_idx + min_df,  Y = min_val
+    inline void parabolic_fit_minima(const phaseshift::vector<float>& ys, int* pmin_idx, float* pmin_df, float* pmin_val=nullptr) {
+        int minidx = phaseshift::argmin<float>(ys);
+        *pmin_idx = minidx;
+        *pmin_df = 0.0f;
+        if (pmin_val != nullptr) *pmin_val = ys[minidx];
+        if (minidx > 0 && minidx < static_cast<int>(ys.size()) - 1) {
+            float y_m1 = ys[minidx - 1];
+            float y    = ys[minidx];
+            float y_p1 = ys[minidx + 1];
+            if ((y_m1 > y) && (y < y_p1)) {
+                float A = 0.5f * (y_m1 + y_p1) - y;
+                if (A > 0.0f) {
+                    float B = 0.5f * (y_p1 - y_m1);
+                    float C = y;
+                    float min_df = -B / (2.0f * A);
+                    *pmin_df = min_df;
+                    if (pmin_val != nullptr) *pmin_val = A * min_df * min_df + B * min_df + C;
+                }
+            }
+        }
+    }
+
+
+    // Sinc -------------------------------------------------------------------
 
     inline float sinc(float x) {
         if (x == 0.0f)
