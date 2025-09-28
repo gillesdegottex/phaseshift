@@ -42,6 +42,24 @@ inline float mel2hz(float mel) {
     }
 }
 
+
+// https://en.wikipedia.org/wiki/A-weighting
+inline float a_weighting(float f) {
+    return (12194.0f*12194.0f) * (f*f*f*f) / ( (f*f + 20.6f*20.6f) * std::sqrt( (f*f + 107.7f*107.7f) * (f*f + 737.9f*737.9f) ) * (f*f + 12194.0f*12194.0f) );
+}
+inline float b_weighting(float f) {
+    return (12194.0f*12194.0f) * (f*f*f) / ( (f*f + 20.6f*20.6f) * std::sqrt( (f*f + 158.5f*158.5f) ) * (f*f + 12194.0*12194.0f) );
+}
+inline float c_weighting(float f) {
+    return (12194.0f*12194.0f) * (f*f) / ( (f*f + 20.6f*20.6f) * (f*f + 12194.0f*12194.0f) );
+}
+inline float d_weighting(float f) {
+    float v1 = (1037918.48f - f*f);
+    float v2 = (9837328.0f - f*f);
+    float h_f = (v1*v1 + 1080768.16f*f*f) / ( v2*v2 + 11723776.0f*f*f );
+    return (f/6.8966888496476f*10e-5) * std::sqrt(h_f / ((f*f + 79919.29f)*(f*f + 1345600.0f)));
+}
+
 }  // namespace phaseshift
 
 #endif  // PHASESHIFT_SIGPROC_AUDITORY_H_
