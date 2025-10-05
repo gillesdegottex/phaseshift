@@ -62,12 +62,20 @@ namespace phaseshift {
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
 
+            // input/output buffers to get output buffer same length as input buffer (often used for real-time use cases)
+            phaseshift::ringbuffer<float> m_rt_out;
+            bool m_rt_received_samples = false;
+            int test_m_rt_nb_post_underruns = 0;
+
          protected:
             int m_timestep = -1;
 
             ola();
 
          public:
+            int test_m_rt_nb_failed = 0;
+            int test_m_rt_ou_size_min = phaseshift::int32::max();
+
             virtual ~ola();
 
             inline int winlen() const {return m_win.size();}
@@ -75,6 +83,8 @@ namespace phaseshift {
             inline int timestep() const {return m_timestep;}
 
             virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+
+            virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
             virtual void flush(phaseshift::ringbuffer<float>* pout);
 
@@ -90,6 +100,7 @@ namespace phaseshift {
             bool m_first_frame_at_t0 = true;
             int m_extra_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
+            int m_rt_out_size_max = -1;
 
          public:
             inline void set_winlen(int winlen) {
@@ -109,6 +120,10 @@ namespace phaseshift {
             inline void set_extra_samples_to_flush(int nbsamples) {
                 m_extra_samples_to_flush = nbsamples;
             }
+            inline void set_in_out_same_size_max(int size_max) {
+                m_rt_out_size_max = size_max;
+            }
+
             inline int winlen() const {return m_winlen;}
             inline int timestep() const {return m_timestep;}
 

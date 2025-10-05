@@ -79,17 +79,23 @@ namespace phaseshift {
     }
 
     // Shortcuts
+    namespace int32 {
+        inline constexpr int size()  {return sizeof(int32_t);}
+        inline constexpr double eps()   {return std::numeric_limits<int32_t>::epsilon();}
+        inline constexpr double min()   {return (std::numeric_limits<int32_t>::min)();}
+        inline constexpr double max()   {return (std::numeric_limits<int32_t>::max)();}
+    }
     namespace float32 {
-        inline int size()  {return sizeof(float);}
-        inline double eps()   {return std::numeric_limits<float>::epsilon();}
-        inline double min()   {return (std::numeric_limits<float>::min)();}
-        inline double max()   {return (std::numeric_limits<float>::max)();}
+        inline constexpr int size()  {return sizeof(float);}
+        inline constexpr double eps()   {return std::numeric_limits<float>::epsilon();}
+        inline constexpr double min()   {return (std::numeric_limits<float>::min)();}
+        inline constexpr double max()   {return (std::numeric_limits<float>::max)();}
     }
     namespace float64 {
-        inline int size()  {return sizeof(double);}
-        inline double eps()   {return std::numeric_limits<double>::epsilon();}
-        inline double min()   {return (std::numeric_limits<double>::min)();}
-        inline double max()   {return (std::numeric_limits<double>::max)();}
+        inline constexpr int size()  {return sizeof(double);}
+        inline constexpr double eps()   {return std::numeric_limits<double>::epsilon();}
+        inline constexpr double min()   {return (std::numeric_limits<double>::min)();}
+        inline constexpr double max()   {return (std::numeric_limits<double>::max)();}
     }
 
     static const float twopi = 2*M_PI;

@@ -12,9 +12,12 @@
 
 #include <thread>
 #include <atomic>
+#include <iostream>
+#include <algorithm>
 
 #include <catch2/catch_test_macros.hpp>
 
+// #include <phaseshift/audio_block/sndfile.h>
 
 class ola_with_extra_tests : public phaseshift::ab::ola {
  public:
@@ -194,5 +197,87 @@ TEST_CASE("audio_block_ola_multithread", "[audio_block_ola_multithread]") {
     // Wait for all to finish
     for (auto&& thread : threads) {
         thread.join();
+    }
+}
+
+TEST_CASE("audio_block_ola_proc_in_out_same_size", "[audio_block_ola_proc_in_out_same_size]") {
+    phaseshift::dev::check_compilation_options();
+    
+    // Test parameters
+    const int fs = 44100;
+    const int winlen = fs*0.020;
+    const int timestep = fs*0.005;
+    DOUT << "winlen=" << winlen << ", timestep=" << timestep << std::endl;
+    const int test_signal_length = fs/4;
+    
+    // Create OLA instance
+    ola_with_extra_tests_builder builder;
+    builder.set_fs(fs);
+    builder.set_winlen(winlen);
+    builder.set_timestep(timestep);
+    builder.set_first_frame_at_t0(true);
+
+    // 128:  6/4 xruns
+    // 256:  not enough space in the output buffer
+    // 1024: 1/0 OK
+    // How to compute optimal chunk size?
+
+    std::vector<int> chunk_sizes;
+    //  = {8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    for (int i=8; i<=8192; i+=8) {
+        chunk_sizes.push_back(i);
+    }
+    for (const int chunk_size : chunk_sizes) {
+        // DLINE
+        DOUT << "chunk_size=" << chunk_size << std::endl;
+
+        builder.set_in_out_same_size_max(chunk_size);
+
+        ola_with_extra_tests* ola_instance = builder.build(new ola_with_extra_tests());
+        ola_instance->wavsize = test_signal_length;
+        
+        // Create test signal - a sine wave
+        phaseshift::ringbuffer<float> input_signal;
+        input_signal.resize_allocation(test_signal_length);
+        input_signal.clear();
+
+        const float frequency = 440.0f; // A4 note
+        for (int i = 0; i < test_signal_length; ++i) {
+            float sample = 0.5f * std::sin(2.0f * M_PI * frequency * i / fs);
+            input_signal.push_back(sample);
+        }
+
+        // Test proc_in_out_same_size - processing chunk by chunk
+        phaseshift::ringbuffer<float> output_signal;
+        output_signal.resize_allocation(test_signal_length);
+        output_signal.clear();
+
+        // Process input signal chunk by chunk
+        for (int i = 0; i < test_signal_length; i += chunk_size) {
+            int current_chunk_size = std::min(chunk_size, test_signal_length - i);
+            
+            phaseshift::ringbuffer<float> input_chunk, output_chunk;
+            input_chunk.resize_allocation(current_chunk_size);
+            input_chunk.push_back(input_signal, i, current_chunk_size);
+
+            ola_instance->proc_same_size(input_chunk, &output_signal);
+        }
+
+        // DOUT << "ola_instance->test_m_rt_nb_failed=" << ola_instance->test_m_rt_nb_failed << std::endl;
+        DOUT << "ola_instance->test_m_rt_ou_size_min=" << ola_instance->test_m_rt_ou_size_min << std::endl;
+        REQUIRE_TS(ola_instance->test_m_rt_nb_failed == 0);
+        REQUIRE_TS(ola_instance->test_m_rt_ou_size_min < chunk_size);
+
+        // Verify output size matches input size
+        REQUIRE_TS(output_signal.size() == input_signal.size());
+        REQUIRE_TS(output_signal.size() == test_signal_length);
+
+        // Verify that the OLA instance was called (frame processing occurred)
+        REQUIRE_TS(ola_instance->nbcalls > 0);
+
+        delete ola_instance;
+
+        // phaseshift::ab::sndfile_writer::write("flop.in.chunk." + std::to_string(chunk_size) + ".wav", fs, input_signal);
+        // phaseshift::ab::sndfile_writer::write("flop.out.chunk." + std::to_string(chunk_size) + ".wav", fs, output_signal);
     }
 }

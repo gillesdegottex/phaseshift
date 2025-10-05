@@ -153,6 +153,45 @@ void phaseshift::ab::ola::flush(phaseshift::ringbuffer<float>* pout) {
 }
 
 
+void phaseshift::ab::ola::proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+
+    int out_size_requested = in.size();
+
+    proc(in, &m_rt_out);
+
+    if (m_rt_out.size() < out_size_requested) {
+        int nbzeros = out_size_requested - m_rt_out.size();
+
+        if (!m_rt_received_samples) {
+            // We don't know how many zeros are necessary to avoid ever coming back here (expect when flushing).
+            // So pre-fill all of the requested output with zeros.
+            // TODO Can't we know?
+
+            pout->push_back(0.0f, out_size_requested);
+
+        } else {
+            // We are at the end of the stream, we need to post-fill the output buffer with zeros.
+            pout->push_back(m_rt_out);
+            m_rt_out.clear();
+
+            pout->push_back(0.0f, nbzeros);
+
+            test_m_rt_nb_post_underruns++;
+        }
+
+    } else {
+        pout->push_back(m_rt_out, 0, out_size_requested);
+        m_rt_out.pop_front(out_size_requested);
+        m_rt_received_samples = true;
+
+        if (test_m_rt_nb_post_underruns > 0) {
+            test_m_rt_nb_failed++;
+        }
+    }
+
+    test_m_rt_ou_size_min = std::min(test_m_rt_ou_size_min, m_rt_out.size());
+}
+
 phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab) {
     build_time_start();
     phaseshift::audio_block_builder::build(pab);
@@ -186,7 +225,8 @@ phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab
     pab->m_out_sum_win.clear();
 
     pab->m_win.resize_allocation(m_winlen);
-    phaseshift::win_hamming(&(pab->m_win), m_winlen);                                       // Default to Hamming window
+    // Default to Hamming window, to avoid amplitude modulation by winsum normalisation, and thus gives perfect reconstruction
+    phaseshift::win_hamming(&(pab->m_win), m_winlen);
 
     if (m_first_frame_at_t0) {
         pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
@@ -206,6 +246,15 @@ phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab
     pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
     pab->m_status.flushing = false;
     pab->m_win_center_idx = 0;
+
+    // Only usefull when using proc_in_out_same_size(.)
+    pab->m_rt_out.resize_allocation(2*std::max<int>(m_winlen+m_timestep, m_rt_out_size_max));
+    pab->m_rt_out.clear();
+    // This should NOT be dependent on m_rt_out_size_max.
+    // Otherwise the latency will be dependent on it.
+    // TODO Remaining optimisation: How to minimize test_m_rt_ou_size_min using m_winlen and/or m_timestep, but without knowing m_rt_out_size_max? ... is it actually possible?
+    pab->m_rt_out.push_back(0.0f, m_winlen);
+    pab->test_m_rt_ou_size_min = phaseshift::int32::max();
 
     build_time_end();
     return pab;
