@@ -207,7 +207,7 @@ TEST_CASE("audio_block_ola_proc_in_out_same_size", "[audio_block_ola_proc_in_out
     const int fs = 44100;
     const int winlen = fs*0.020;
     const int timestep = fs*0.005;
-    DOUT << "winlen=" << winlen << ", timestep=" << timestep << std::endl;
+    // DOUT << "winlen=" << winlen << ", timestep=" << timestep << std::endl;
     const int test_signal_length = fs/4;
     
     // Create OLA instance
@@ -228,8 +228,7 @@ TEST_CASE("audio_block_ola_proc_in_out_same_size", "[audio_block_ola_proc_in_out
         chunk_sizes.push_back(i);
     }
     for (const int chunk_size : chunk_sizes) {
-        // DLINE
-        DOUT << "chunk_size=" << chunk_size << std::endl;
+        // DOUT << "chunk_size=" << chunk_size << std::endl;
 
         builder.set_in_out_same_size_max(chunk_size);
 
@@ -264,7 +263,7 @@ TEST_CASE("audio_block_ola_proc_in_out_same_size", "[audio_block_ola_proc_in_out
         }
 
         // DOUT << "ola_instance->test_m_rt_nb_failed=" << ola_instance->test_m_rt_nb_failed << std::endl;
-        DOUT << "ola_instance->test_m_rt_ou_size_min=" << ola_instance->test_m_rt_ou_size_min << std::endl;
+        // DOUT << "ola_instance->test_m_rt_ou_size_min=" << ola_instance->test_m_rt_ou_size_min << std::endl;
         REQUIRE_TS(ola_instance->test_m_rt_nb_failed == 0);
         REQUIRE_TS(ola_instance->test_m_rt_ou_size_min < chunk_size);
 

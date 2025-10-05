@@ -160,10 +160,9 @@ void phaseshift::ab::ola::proc_same_size(const phaseshift::ringbuffer<float>& in
     proc(in, &m_rt_out);
 
     if (m_rt_out.size() < out_size_requested) {
-        int nbzeros = out_size_requested - m_rt_out.size();
 
         if (!m_rt_received_samples) {
-            // We don't know how many zeros are necessary to avoid ever coming back here (expect when flushing).
+            // We don't know how many zeros are necessary to avoid ever coming back here.
             // So pre-fill all of the requested output with zeros.
             // TODO Can't we know?
 
@@ -171,10 +170,16 @@ void phaseshift::ab::ola::proc_same_size(const phaseshift::ringbuffer<float>& in
 
         } else {
             // We are at the end of the stream, we need to post-fill the output buffer with zeros.
-            pout->push_back(m_rt_out);
-            m_rt_out.clear();
+            flush(&m_rt_out);
+            // At that point m_rt_out.size() could be larger than out_size_requested.
+            int to_push = std::min<int>(out_size_requested, m_rt_out.size());
+            pout->push_back(m_rt_out, 0, to_push);  // So push only what is requested.
+            m_rt_out.pop_front(to_push);            // and pop the same amount.
 
-            pout->push_back(0.0f, nbzeros);
+            int nbzeros = out_size_requested - to_push;
+            if (nbzeros > 0) {
+                pout->push_back(0.0f, nbzeros);
+            }
 
             test_m_rt_nb_post_underruns++;
         }
