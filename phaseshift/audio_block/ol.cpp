@@ -33,11 +33,9 @@ void phaseshift::ab::ol::proc_win(int nb_samples_to_flush) {
     m_status.first_frame = false;
 
     // There are timestep samples that we can flush
-    int nb_samples_to_flush_remains = nb_samples_to_flush;
     if (m_first_frame_at_t0_samples_to_skip > 0) {
         // TODO(GD) This skipping is only for offline mode. -> Make a separate dedicated class?
         int nb_topop = std::min<int>(m_first_frame_at_t0_samples_to_skip,nb_samples_to_flush);
-        nb_samples_to_flush_remains -= nb_topop;
         m_first_frame_at_t0_samples_to_skip -= nb_topop;
     }
 
