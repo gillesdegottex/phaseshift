@@ -70,30 +70,30 @@ namespace phaseshift {
             if (rb_front >= rb.m_size_max)
                 rb_front -= rb.m_size_max;
 
-            acbr::memory_check_size(rb_size);
+            acbr::memory_check_size_nolock(rb_size);
 
-            if (acbr::m_back+rb_size <= acbr::m_size_max) {
+            if (acbr::m_end+rb_size <= acbr::m_size_max) {
                 // The destination segment is continuous
 
                 // Now let's see the source segment(s)
                 if (rb_front+rb_size <= rb.m_size_max) {
                     // The source segment is continuous...
                     // ... easiest game of my life
-                    acbr::memory_copy(acbr::m_data+acbr::m_back, rb.m_data+rb_front, rb_size);
+                    acbr::memory_copy_nolock(acbr::m_data+acbr::m_end, rb.m_data+rb_front, rb_size);
 
                 } else {
                     // The source segment is made of two continuous segments
 
                     // 1st segment
                     int seg1size = rb.m_size_max - rb_front;
-                    acbr::memory_copy(acbr::m_data+acbr::m_back, rb.m_data+rb_front, seg1size);
+                    acbr::memory_copy_nolock(acbr::m_data+acbr::m_end, rb.m_data+rb_front, seg1size);
 
                     // 2nd segment
                     int seg2size = rb_size - seg1size;
-                    acbr::memory_copy(acbr::m_data+acbr::m_back+seg1size, rb.m_data, seg2size);
+                    acbr::memory_copy_nolock(acbr::m_data+acbr::m_end+seg1size, rb.m_data, seg2size);
                 }
 
-                acbr::m_back += rb_size;
+                acbr::m_end += rb_size;
 
             } else {
                 // The destination segment is made of two continuous segments
@@ -102,56 +102,56 @@ namespace phaseshift {
                     // The source segment is continuous...
 
                     // 1st segment
-                    int seg1size = acbr::m_size_max - acbr::m_back;
-                    acbr::memory_copy(acbr::m_data+acbr::m_back, rb.m_data+rb_front, seg1size);
+                    int seg1size = acbr::m_size_max - acbr::m_end;
+                    acbr::memory_copy_nolock(acbr::m_data+acbr::m_end, rb.m_data+rb_front, seg1size);
 
                     // 2nd segment
                     int seg2size = rb_size - seg1size;
-                    acbr::memory_copy(acbr::m_data, rb.m_data+rb_front+seg1size, seg2size);
+                    acbr::memory_copy_nolock(acbr::m_data, rb.m_data+rb_front+seg1size, seg2size);
 
                 } else {
                     // The source segment is also made of two continuous segments...
                     // ... worst game of my life.
 
                     // Let's check if the source's break point comes before or after the destination's max size.
-                    if ((rb.size_max()-rb_front) < (acbr::m_size_max-acbr::m_back)) {
+                    if ((rb.size_max()-rb_front) < (acbr::m_size_max-acbr::m_end)) {
                         // the source's break point comes before the destination's max size...
                         // .. handle the 3 resulting segments
 
                         // 1st segment
                         int seg1size = rb.m_size_max - rb_front;
-                        acbr::memory_copy(acbr::m_data+acbr::m_back, rb.m_data+rb_front, seg1size);
+                        acbr::memory_copy_nolock(acbr::m_data+acbr::m_end, rb.m_data+rb_front, seg1size);
 
                         // 2nd segment
-                        int seg2size = (acbr::m_size_max-acbr::m_back) - seg1size;
-                        acbr::memory_copy(acbr::m_data+acbr::m_back+seg1size, rb.m_data, seg2size);
+                        int seg2size = (acbr::m_size_max-acbr::m_end) - seg1size;
+                        acbr::memory_copy_nolock(acbr::m_data+acbr::m_end+seg1size, rb.m_data, seg2size);
 
                         // 3rd segment
                         int seg3size = rb_size - seg1size - seg2size;
-                        acbr::memory_copy(acbr::m_data, rb.m_data+seg2size, seg3size);
+                        acbr::memory_copy_nolock(acbr::m_data, rb.m_data+seg2size, seg3size);
 
                     } else {
                         // the source's break point comes after or on the destination's max size...
                         // .. handle the 3 resulting segments
 
                         // 1st segment
-                        int seg1size = acbr::m_size_max - acbr::m_back;
-                        acbr::memory_copy(acbr::m_data+acbr::m_back, rb.m_data+rb_front, seg1size);
+                        int seg1size = acbr::m_size_max - acbr::m_end;
+                        acbr::memory_copy_nolock(acbr::m_data+acbr::m_end, rb.m_data+rb_front, seg1size);
 
                         // 2nd segment
                         int seg2size = (rb.m_size_max-rb_front) - seg1size;
-                        acbr::memory_copy(acbr::m_data, rb.m_data+rb_front+seg1size, seg2size);
+                        acbr::memory_copy_nolock(acbr::m_data, rb.m_data+rb_front+seg1size, seg2size);
 
                         // 3rd segment
                         int seg3size = rb_size - seg1size - seg2size;
-                        acbr::memory_copy(acbr::m_data+seg2size, rb.m_data, seg3size);
+                        acbr::memory_copy_nolock(acbr::m_data+seg2size, rb.m_data, seg3size);
                     }
                 }
 
-                // m_back = seg2size; // TODO Isn't it equal to this?
-                acbr::m_back += rb_size;
-                if (acbr::m_back >= acbr::m_size_max)
-                    acbr::m_back -= acbr::m_size_max;
+                // m_end = seg2size; // TODO Isn't it equal to this?
+                acbr::m_end += rb_size;
+                if (acbr::m_end >= acbr::m_size_max)
+                    acbr::m_end -= acbr::m_size_max;
             }
 
             acbr::m_size += rb_size;
@@ -203,8 +203,8 @@ namespace phaseshift {
             } else {
                 // Need to slice the array into two segments
 
-                // 1st segment: m_back:m_size_max-1
-                int seg1size = acbr::m_size_max - acbr::m_back;
+                // 1st segment: m_end:m_size_max-1
+                int seg1size = acbr::m_size_max - acbr::m_end;
                 value_type* pdata = acbr::m_data+acbr::m_front;
                 value_type* pvdata = v.m_data;
                 for (int n = 0; n < seg1size; ++n)
