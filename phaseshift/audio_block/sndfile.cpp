@@ -91,6 +91,26 @@ int phaseshift::ab::sndfile_reader::get_nbchannels(const std::string& file_path)
     return nbchannels;
 }
 
+int phaseshift::ab::sndfile_reader::get_nbframes(const std::string& file_path) {
+    assert(file_path != "");
+
+    SF_INFO sf_info;
+    memset(&sf_info, 0, sizeof(sf_info));
+    SNDFILE* file_handle = nullptr;
+    file_handle = sf_open(file_path.c_str(), SFM_READ, &sf_info);
+    if (file_handle == nullptr) {
+        // sf_strerror(.)  // TODO(GD) Return error type?
+        return -1;
+    }
+
+    int nbframes = sf_info.frames;
+
+    if (file_handle) {
+        sf_close(file_handle);
+    }
+
+    return nbframes;
+}
 int phaseshift::ab::sndfile_reader::get_bitrate(const std::string& file_path) {
     assert(file_path != "");
 

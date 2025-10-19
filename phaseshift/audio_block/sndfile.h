@@ -55,6 +55,7 @@ namespace phaseshift {
             static int read(const std::string& file_path, ringbuffer* pout, int chunk_size_max = 1024, int channel_id = 0);
             static float get_fs(const std::string& file_path);
             static int get_nbchannels(const std::string& file_path);
+            static int get_nbframes(const std::string& file_path);
             static int get_bitrate(const std::string& file_path);
 
             //! Return the number of frames field of the `SF_INFO` structure.

@@ -53,7 +53,8 @@ void phaseshift::dev::ab::tester::run() {
     PHASESHIFT_PROF(acbench::time_elapsed m_file_reader_te;)  // To keep track for time elapsed across iterations
 
     m_fs = phaseshift::ab::sndfile_reader::get_fs(m_file_path_in);
-    m_file_in.resize_allocation(10*m_fs);
+    int nbframes = phaseshift::ab::sndfile_reader::get_nbframes(m_file_path_in);
+    m_file_in.resize_allocation(nbframes);
     phaseshift::ab::sndfile_reader::read(m_file_path_in, &m_file_in);
     phaseshift::dev::signals_check_nan_inf(m_file_in);
 
@@ -68,7 +69,7 @@ void phaseshift::dev::ab::tester::run() {
 
         auto file_reader = m_file_reader_builder.open();
 
-        m_file_out.resize_allocation(10*fs());         // TODO(GD) 10s max
+        m_file_out.resize_allocation(nbframes);
 
         phaseshift::ringbuffer<float> buffer_in;
         buffer_in.resize_allocation(m_param_chunk_size);
