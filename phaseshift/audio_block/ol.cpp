@@ -103,6 +103,34 @@ void phaseshift::ab::ol::flush() {
     } while (nb_samples_to_flush_total > 0);
 }
 
+void phaseshift::ab::ol::reset() {
+    phaseshift::audio_block::reset();
+
+    assert(m_frame_rolling.size_max() == winlen());
+    m_frame_rolling.clear();
+
+    assert(m_frame_input.size_max() == winlen());
+    assert(m_frame_input.size() == winlen());
+    m_frame_input.clear();
+
+    assert(m_win.size_max() == winlen());
+    // phaseshift::win_hamming(&(pab->m_win), m_winlen);  // No need to re-build it.
+
+    if (m_first_frame_at_t0) {
+        m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
+        m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
+    } else {
+        m_first_frame_at_t0_samples_to_skip = 0;
+    }
+    m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
+
+    m_status.first_frame = true;
+    m_status.last_frame = false;
+    m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
+    m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
+    m_status.flushing = false;
+    m_win_center_idx = 0;
+}
 
 phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
     build_time_start();
@@ -130,6 +158,7 @@ phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
     pab->m_win.resize_allocation(m_winlen);
     phaseshift::win_hamming(&(pab->m_win), m_winlen);                                       // Default to Hamming windows
 
+    pab->m_first_frame_at_t0 = m_first_frame_at_t0;
     if (m_first_frame_at_t0) {
         pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
         pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);

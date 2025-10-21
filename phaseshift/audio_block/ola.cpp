@@ -162,39 +162,97 @@ void phaseshift::ab::ola::proc_same_size(const phaseshift::ringbuffer<float>& in
     if (m_rt_out.size() < out_size_requested) {
 
         if (!m_rt_received_samples) {
-            // We don't know how many zeros are necessary to avoid ever coming back here.
+            // Beginning of the stream, there is no yet enough data processed to get enough input.
             // So pre-fill all of the requested output with zeros.
-            // TODO Can't we know?
+            
+            // We don't know how many zeros are necessary to avoid ever coming back here.
+            // TODO It should be possible to calculate it based on the winlen and the timestep.
 
             pout->push_back(0.0f, out_size_requested);
 
         } else {
-            // We are at the end of the stream, we need to post-fill the output buffer with zeros.
+            // We are at the end of the stream.
+
+            // So first flush any internal buffers
             flush(&m_rt_out);
             // At that point m_rt_out.size() could be larger than out_size_requested.
             int to_push = std::min<int>(out_size_requested, m_rt_out.size());
             pout->push_back(m_rt_out, 0, to_push);  // So push only what is requested.
             m_rt_out.pop_front(to_push);            // and pop the same amount.
 
+            // And post-fill with as many zeros as necessary.
             int nbzeros = out_size_requested - to_push;
             if (nbzeros > 0) {
                 pout->push_back(0.0f, nbzeros);
+                // A real post-underrun only happens when we need to add zeros.
+                // I.e. if the flush(.) allowed to recover from this underruns, it is not counted as one.
+                m_stat_rt_nb_post_underruns++;
             }
-
-            test_m_rt_nb_post_underruns++;
         }
 
     } else {
+        // Normal case
         pout->push_back(m_rt_out, 0, out_size_requested);
         m_rt_out.pop_front(out_size_requested);
         m_rt_received_samples = true;
 
-        if (test_m_rt_nb_post_underruns > 0) {
-            test_m_rt_nb_failed++;
+        if (m_stat_rt_nb_post_underruns > 0) {
+            m_stat_rt_nb_failed++;  // This should never happen and is tested for.
         }
     }
 
-    test_m_rt_ou_size_min = std::min(test_m_rt_ou_size_min, m_rt_out.size());
+    m_stat_rt_out_size_min = std::min(m_stat_rt_out_size_min, m_rt_out.size());
+}
+
+void phaseshift::ab::ola::reset() {
+    phaseshift::audio_block::reset();
+
+    // Use asserts to verify that the capacity and some of the sizes should not have changed.
+
+    assert(m_frame_rolling.size_max() == winlen());
+    m_frame_rolling.clear();
+
+    assert(m_frame_input.size_max() == winlen());
+    assert(m_frame_input.size() == winlen());
+    m_frame_input.clear();
+
+    assert(m_frame_output.size_max() == winlen());
+    assert(m_frame_output.size() == winlen());
+    m_frame_output.clear();
+
+    assert(m_out_sum.size_max() == winlen());
+    m_out_sum.clear();
+    assert(m_out_sum_win.size_max() == winlen());
+    m_out_sum_win.clear();
+
+    assert(m_win.size_max() == winlen());
+    // phaseshift::win_hamming(&(m_win), winlen);  // Not changed, no need to re-build it.
+
+    if (m_first_frame_at_t0) {
+        m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
+        m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
+    } else {
+        m_first_frame_at_t0_samples_to_skip = 0;
+    }
+    m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
+
+    m_out_sum.push_back(0.0f, winlen());
+    m_out_sum_win.push_back(0.0f, winlen());
+
+    m_status.first_frame = true;
+    m_status.last_frame = false;
+    m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
+    m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
+    m_status.flushing = false;
+    m_win_center_idx = 0;
+
+    assert(m_rt_out.size_max() == 2*std::max<int>(winlen()+m_timestep, m_rt_out_size_max));
+    m_rt_out.clear();
+    m_rt_out.push_back(0.0f, winlen());
+    m_rt_received_samples = false;
+    m_stat_rt_nb_failed = 0;
+    m_stat_rt_nb_post_underruns = 0;
+    m_stat_rt_out_size_min = phaseshift::int32::max();
 }
 
 phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab) {
@@ -233,12 +291,14 @@ phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab
     // Default to Hamming window, to avoid amplitude modulation by winsum normalisation, and thus gives perfect reconstruction
     phaseshift::win_hamming(&(pab->m_win), m_winlen);
 
+    pab->m_first_frame_at_t0 = m_first_frame_at_t0;
     if (m_first_frame_at_t0) {
         pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
         pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);
     } else {
         pab->m_first_frame_at_t0_samples_to_skip = 0;
     }
+    pab->m_extra_samples_to_skip = m_extra_samples_to_skip;
     pab->m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
     pab->m_extra_samples_to_flush = m_extra_samples_to_flush;
 
@@ -253,13 +313,17 @@ phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab
     pab->m_win_center_idx = 0;
 
     // Only usefull when using proc_in_out_same_size(.)
+    pab->m_rt_out_size_max = m_rt_out_size_max;
     pab->m_rt_out.resize_allocation(2*std::max<int>(m_winlen+m_timestep, m_rt_out_size_max));
     pab->m_rt_out.clear();
     // This should NOT be dependent on m_rt_out_size_max.
     // Otherwise the latency will be dependent on it.
-    // TODO Remaining optimisation: How to minimize test_m_rt_ou_size_min using m_winlen and/or m_timestep, but without knowing m_rt_out_size_max? ... is it actually possible?
+    // TODO Remaining optimisation: How to minimize test_m_rt_out_size_min using m_winlen and/or m_timestep, but without knowing m_rt_out_size_max? ... is it actually possible?
     pab->m_rt_out.push_back(0.0f, m_winlen);
-    pab->test_m_rt_ou_size_min = phaseshift::int32::max();
+    pab->m_rt_received_samples = false;
+    pab->m_stat_rt_nb_failed = 0;
+    pab->m_stat_rt_nb_post_underruns = 0;
+    pab->m_stat_rt_out_size_min = phaseshift::int32::max();
 
     build_time_end();
     return pab;

@@ -167,7 +167,6 @@ namespace phaseshift {
                 return written_samples_total;
             }
 
-
             //! WARNING: Not multi-thread safe
             template<class ringbuffer>
             int write(const std::vector<ringbuffer*>& ins) {

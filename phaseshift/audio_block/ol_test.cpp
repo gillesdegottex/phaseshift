@@ -6,7 +6,7 @@
 //     https://github.com/gillesdegottex/phaseshift
 
 #include <phaseshift/utils.h>
-#include <phaseshift/audio_block/ola.h>
+#include <phaseshift/audio_block/ol.h>
 #include <phaseshift/audio_block/tester.h>
 #include <phaseshift/dev/catch2_extra.h>
 
@@ -17,20 +17,17 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-// #include <phaseshift/audio_block/sndfile.h>
-
-class ola_with_extra_tests : public phaseshift::ab::ola {
+class ol_with_extra_tests : public phaseshift::ab::ol {
  public:
     int nbcalls = 0;
     phaseshift::globalcursor_t wavsize = 0;
     phaseshift::globalcursor_t win_center_idx_prev = 0;
 
-    ola_with_extra_tests() {}
+    ol_with_extra_tests() {}
 
-    virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const proc_status& status, phaseshift::globalcursor_t win_center_idx) {
+    virtual void proc_frame(const phaseshift::vector<float>& in, const phaseshift::ab::ol::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
         (void)status;
         (void)win_center_idx;
-        phaseshift::vector<float>& out = *pout;
 
         // Distances from one window's center to the next has to be of timestep samples
         if (win_center_idx > 0) {
@@ -46,33 +43,30 @@ class ola_with_extra_tests : public phaseshift::ab::ola {
         REQUIRE_TS(win_center_idx >= 0); // Window's center are all on or after first sample
         REQUIRE_TS(win_center_idx <= wavsize+winlen()/2+1); // Window's centers are all on or before last sample
 
-        out = in;
-        out *= win();
-
         nbcalls++;
     }
 };
 
-class ola_with_extra_tests_builder : public phaseshift::ab::ola_builder {
+class ol_with_extra_tests_builder : public phaseshift::ab::ol_builder {
  public:
-    ola_with_extra_tests* build(ola_with_extra_tests* pab) {
-        phaseshift::ab::ola_builder::build(pab);
+    ol_with_extra_tests* build(ol_with_extra_tests* pab) {
+        phaseshift::ab::ol_builder::build(pab);
         pab->nbcalls = 0;
         pab->wavsize = 0;
         pab->win_center_idx_prev = 0;
         return pab;
     }
-    ola_with_extra_tests* build() {return build(new ola_with_extra_tests());}
+    ol_with_extra_tests* build() {return build(new ol_with_extra_tests());}
 };
 
-struct tester_ola : public phaseshift::dev::ab::tester {
-    tester_ola()
+struct tester_ol : public phaseshift::dev::ab::tester {
+    tester_ol()
         : phaseshift::dev::ab::tester(100) {  // Number of iterations
     }
 
     // Da stuff to test
-    ola_with_extra_tests_builder m_audio_block_builder;
-    ola_with_extra_tests* m_audio_block = nullptr;
+    ol_with_extra_tests_builder m_audio_block_builder;
+    ol_with_extra_tests* m_audio_block = nullptr;
     PHASESHIFT_PROF(acbench::time_elapsed m_ab_te;)  // To keep track for time elapsed of ab across iterations
 
     // The parameters to randomize
@@ -104,14 +98,15 @@ struct tester_ola : public phaseshift::dev::ab::tester {
         m_audio_block_builder.set_timestep(m_param_timestep);
 
         m_audio_block = m_audio_block_builder.build();
+        // DOUT << "DEBUG: m_audio_block.fs()=" << m_audio_block->fs() << std::endl;
         m_audio_block->wavsize = file_in().size();
         PHASESHIFT_PROF(m_audio_block->dbg_proc_time.merge(m_ab_te);)
     }
     virtual void iteration_proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-        m_audio_block->proc(in, pout);
+        m_audio_block->proc(in);
     }
     virtual void iteration_finalize(phaseshift::ringbuffer<float>* pout) {
-        m_audio_block->flush(pout);
+        m_audio_block->flush();
 
         PHASESHIFT_PROF(m_ab_te = m_audio_block->time_elapsed();)  // Remember what the statistics just before destroying it, in order to accumulate them later one.
 
@@ -120,18 +115,7 @@ struct tester_ola : public phaseshift::dev::ab::tester {
         delete m_audio_block;
     }
     virtual void iteration_tests() {
-        PHASESHIFT_PROF(m_abs.loop_add("ab_ola", &m_ab_te);)
-
-        REQUIRE_TS(phaseshift::dev::signals_equal_strictly(file_in(), file_out(), phaseshift::db2lin(-100.0f)));
-
-        // TODO(GD) Cleaning
-        // phaseshift::ab::sndfile_writer_built::write("flop.in.wav", fs(), file_in());
-        // phaseshift::ab::sndfile_writer_built::write("flop.out.wav", fs(), file_out());
-        // phaseshift::ringbuffer<float> residual;
-        // residual.allocate_lose_data(file_in().size());
-        // residual = file_in();
-        // residual -= file_out();
-        // phaseshift::ab::sndfile_writer_built::write("flop.res.wav", fs(), residual);
+        PHASESHIFT_PROF(m_abs.loop_add("ab_ol", &m_ab_te);)
     }
 
     virtual void final_tests() {
@@ -139,48 +123,48 @@ struct tester_ola : public phaseshift::dev::ab::tester {
     }
 };
 
-struct tester_ola_bugs : public tester_ola {
+struct tester_ol_bugs : public tester_ol {
     virtual void randomize_params(std::mt19937* pgen, int iter) {
         randomize_params_limits(pgen, iter, 1, 16000,   3, 1600,   1);
     }
 };
-TEST_CASE("audio_block_ola_bugs", "[audio_block_ola_bugs]") {
+TEST_CASE("audio_block_ol_bugs", "[audio_block_ol_bugs]") {
     phaseshift::dev::check_compilation_options();
-    tester_ola_bugs().run();
+    tester_ol_bugs().run();
 }
 
-// struct tester_ola_speed : public tester_ola {
+// struct tester_ol_speed : public tester_ol {
 //     virtual void randomize_params(std::mt19937* pgen, int iter) {
 //         randomize_params_limits(pgen, iter, 16,  800, 160,  800,  16);
 //     }
 // };
-// TEST_CASE("audio_block_ola_speed", "[audio_block_ola_speed]") {
+// TEST_CASE("audio_block_ol_speed", "[audio_block_ol_speed]") {
 //     phaseshift::dev::check_compilation_options();
-//     tester_ola_speed().run();
+//     tester_ol_speed().run();
 // }
 
-struct tester_ola_multithread : public tester_ola {
+struct tester_ol_multithread : public tester_ol {
     virtual void randomize_params(std::mt19937* pgen, int iter) {
         randomize_params_limits(pgen, iter, 64, 512, 320, 400, 64);
     }
 };
-std::atomic<bool> g_tester_ola_multithread_go = false;
-std::atomic<int> g_tester_ola_multithread_nb_ready = 0;
-void tester_ola_multithread_thread() {
+std::atomic<bool> g_tester_ol_multithread_go = false;
+std::atomic<int> g_tester_ol_multithread_nb_ready = 0;
+void tester_ol_multithread_thread() {
     // Wait for all thread to be ready before starting init and proc
-    g_tester_ola_multithread_nb_ready++;
-    while ( !g_tester_ola_multithread_go ) {
+    g_tester_ol_multithread_nb_ready++;
+    while ( !g_tester_ol_multithread_go ) {
         std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(0.001*1e6)));
     }
-    tester_ola_multithread().run();
+    tester_ol_multithread().run();
 }
-TEST_CASE("audio_block_ola_multithread", "[audio_block_ola_multithread]") {
+TEST_CASE("audio_block_ol_multithread", "[audio_block_ol_multithread]") {
     phaseshift::dev::check_compilation_options();
 
-    g_tester_ola_multithread_go = false;
+    g_tester_ol_multithread_go = false;
     std::vector<std::thread> threads;
     for (int nt=0; nt<8; ++nt) {
-        threads.push_back(std::thread(tester_ola_multithread_thread));
+        threads.push_back(std::thread(tester_ol_multithread_thread));
 
         // Wait for the new thread to start before starting the next one
         // to be sure that
@@ -190,10 +174,10 @@ TEST_CASE("audio_block_ola_multithread", "[audio_block_ola_multithread]") {
     }
 
     // Wait for all to get ready...
-    while ( g_tester_ola_multithread_nb_ready < threads.size() ) {
+    while ( g_tester_ol_multithread_nb_ready < threads.size() ) {
         std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(0.001*1e6)));
     }
-    g_tester_ola_multithread_go = true;
+    g_tester_ol_multithread_go = true;
 
     // Wait for all to finish
     for (auto&& thread : threads) {
@@ -201,82 +185,7 @@ TEST_CASE("audio_block_ola_multithread", "[audio_block_ola_multithread]") {
     }
 }
 
-TEST_CASE("audio_block_ola_proc_in_out_same_size", "[audio_block_ola_proc_in_out_same_size]") {
-    phaseshift::dev::check_compilation_options();
-    
-    // Test parameters
-    const int fs = 44100;
-    const int winlen = fs*0.020;
-    const int timestep = fs*0.005;
-    // DOUT << "winlen=" << winlen << ", timestep=" << timestep << std::endl;
-    const int test_signal_length = fs/4;
-    
-    // Create OLA instance
-    ola_with_extra_tests_builder builder;
-    builder.set_fs(fs);
-    builder.set_winlen(winlen);
-    builder.set_timestep(timestep);
-    builder.set_first_frame_at_t0(true);
-
-    std::vector<int> chunk_sizes;
-    //  = {8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    for (int i=8; i<=8192; i+=8) {
-        chunk_sizes.push_back(i);
-    }
-    for (const int chunk_size : chunk_sizes) {
-        // DOUT << "chunk_size=" << chunk_size << std::endl;
-
-        builder.set_in_out_same_size_max(chunk_size);
-
-        ola_with_extra_tests* ola_instance = builder.build(new ola_with_extra_tests());
-        ola_instance->wavsize = test_signal_length;
-        
-        // Create test signal - a sine wave
-        phaseshift::ringbuffer<float> input_signal;
-        input_signal.resize_allocation(test_signal_length);
-        input_signal.clear();
-
-        const float frequency = 440.0f; // A4 note
-        for (int i = 0; i < test_signal_length; ++i) {
-            float sample = 0.5f * std::sin(2.0f * M_PI * frequency * i / fs);
-            input_signal.push_back(sample);
-        }
-
-        // Test proc_in_out_same_size - processing chunk by chunk
-        phaseshift::ringbuffer<float> output_signal;
-        output_signal.resize_allocation(test_signal_length);
-        output_signal.clear();
-
-        // Process input signal chunk by chunk
-        for (int i = 0; i < test_signal_length; i += chunk_size) {
-            int current_chunk_size = std::min(chunk_size, test_signal_length - i);
-            
-            phaseshift::ringbuffer<float> input_chunk, output_chunk;
-            input_chunk.resize_allocation(current_chunk_size);
-            input_chunk.push_back(input_signal, i, current_chunk_size);
-
-            ola_instance->proc_same_size(input_chunk, &output_signal);
-        }
-
-        REQUIRE_TS(ola_instance->stat_rt_nb_failed() == 0);
-        REQUIRE_TS(ola_instance->stat_rt_out_size_min() < chunk_size);
-
-        // Verify output size matches input size
-        REQUIRE_TS(output_signal.size() == input_signal.size());
-        REQUIRE_TS(output_signal.size() == test_signal_length);
-
-        // Verify that the OLA instance was called (frame processing occurred)
-        REQUIRE_TS(ola_instance->nbcalls > 0);
-
-        delete ola_instance;
-
-        // phaseshift::ab::sndfile_writer::write("flop.in.chunk." + std::to_string(chunk_size) + ".wav", fs, input_signal);
-        // phaseshift::ab::sndfile_writer::write("flop.out.chunk." + std::to_string(chunk_size) + ".wav", fs, output_signal);
-    }
-}
-
-
-TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
+TEST_CASE("audio_block_ol_proc_reset", "[audio_block_ol_proc_reset]") {
     phaseshift::dev::check_compilation_options();
     
     int repeat = 5;
@@ -289,7 +198,7 @@ TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
         const int test_signal_length = 3*fs;  // 3 seconds
         
         // Create OLA instance
-        ola_with_extra_tests_builder builder;
+        ol_with_extra_tests_builder builder;
         builder.set_fs(fs);
         builder.set_winlen(winlen);
         builder.set_timestep(timestep);
@@ -298,10 +207,8 @@ TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
         std::vector<int> chunk_sizes = {8, 64, 128, 384, 512, 1024, 4096};
         for (const int chunk_size : chunk_sizes) {
 
-            builder.set_in_out_same_size_max(chunk_size);
-
-            ola_with_extra_tests* ola_instance = builder.build();
-            ola_instance->wavsize = test_signal_length;
+            ol_with_extra_tests* ol_instance = builder.build();
+            ol_instance->wavsize = test_signal_length;
 
             // Create test signal - a sine wave
             phaseshift::ringbuffer<float> input_signal;
@@ -333,33 +240,19 @@ TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
                     input_chunk.resize_allocation(current_chunk_size);
                     input_chunk.push_back(input_signal, i, current_chunk_size);
 
-                    ola_instance->proc_same_size(input_chunk, &output_signal);
+                    ol_instance->proc(input_chunk);
                 }
 
-                REQUIRE_TS(ola_instance->stat_rt_nb_failed() == 0);
-                REQUIRE_TS(ola_instance->stat_rt_out_size_min() < chunk_size);
-        
-                // Verify output size matches input size
-                REQUIRE_TS(output_signal.size() == input_signal.size());
-                REQUIRE_TS(output_signal.size() == test_signal_length);
-
                 // Verify that the OLA instance was called (frame processing occurred)
-                REQUIRE_TS(ola_instance->nbcalls > 0);
+                REQUIRE_TS(ol_instance->nbcalls > 0);
 
                 // phaseshift::ab::sndfile_writer::write("flop.in.chunk." + std::to_string(chunk_size) + ".wav", fs, input_signal);
                 // phaseshift::ab::sndfile_writer::write("flop.out.chunk." + std::to_string(chunk_size) + ".wav", fs, output_signal);
 
-                if (rep == 0) {
-                    output_signal_ref = output_signal;
-                } else {
-                    // Compare with reference
-                    REQUIRE_TS(phaseshift::dev::signals_equal_strictly(output_signal_ref, output_signal));
-                }
-
-                ola_instance->reset();
+                ol_instance->reset();
             }
 
-            delete ola_instance;
+            delete ol_instance;
         }
     }
 }

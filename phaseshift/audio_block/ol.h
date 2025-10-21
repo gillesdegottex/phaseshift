@@ -43,6 +43,8 @@ namespace phaseshift {
             phaseshift::ringbuffer<float> m_frame_rolling;
             phaseshift::vector<float> m_frame_input;
 
+            bool m_first_frame_at_t0 = true;
+            int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
 
@@ -65,6 +67,8 @@ namespace phaseshift {
             virtual void proc(const phaseshift::ringbuffer<float>& in);
 
             virtual void flush();
+
+            virtual void reset();
 
             PHASESHIFT_PROF(acbench::time_elapsed dbg_proc_frame_time;)
 

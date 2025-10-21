@@ -55,17 +55,24 @@ namespace phaseshift {
             phaseshift::ringbuffer<float> m_out_sum;
             phaseshift::ringbuffer<float> m_out_sum_win;
 
+            bool m_first_frame_at_t0 = true;
+            int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
+            int m_rt_out_size_max = -1;
 
             phaseshift::globalcursor_t m_win_center_idx = 0;
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
 
+            // Member variables for real-time processing
             // input/output buffers to get output buffer same length as input buffer (often used for real-time use cases)
             phaseshift::ringbuffer<float> m_rt_out;
             bool m_rt_received_samples = false;
-            int test_m_rt_nb_post_underruns = 0;
+
+            int m_stat_rt_nb_post_underruns = 0;
+            int m_stat_rt_nb_failed = 0;
+            int m_stat_rt_out_size_min = phaseshift::int32::max();
 
          protected:
             int m_timestep = -1;
@@ -73,8 +80,6 @@ namespace phaseshift {
             ola();
 
          public:
-            int test_m_rt_nb_failed = 0;
-            int test_m_rt_ou_size_min = phaseshift::int32::max();
 
             virtual ~ola();
 
@@ -87,6 +92,11 @@ namespace phaseshift {
             virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
             virtual void flush(phaseshift::ringbuffer<float>* pout);
+
+            virtual void reset();
+
+            int stat_rt_nb_failed() const {return m_stat_rt_nb_failed;}
+            int stat_rt_out_size_min() const {return m_stat_rt_out_size_min;}
 
             PHASESHIFT_PROF(acbench::time_elapsed dbg_proc_frame_time;)
 

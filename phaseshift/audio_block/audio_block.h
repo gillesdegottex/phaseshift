@@ -63,6 +63,11 @@ namespace phaseshift {
         virtual void flush(phaseshift::ringbuffer<float>* pout) {
             (void)pout;
         }
+
+        virtual void reset() {
+            // m_fs need to be preserved as is.
+            // Carry the profiling statistics over the reset, thus do not reset them.
+        }
     };
 
     class audio_block_builder {

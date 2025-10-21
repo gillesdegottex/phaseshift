@@ -295,6 +295,11 @@ set_target_properties(phaseshift
     target_link_libraries(phaseshift_ringbuffer_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_ringbuffer_test COMMAND phaseshift_ringbuffer_test)
 
+    add_executable(phaseshift_audio_block_ol_test phaseshift/audio_block/ol_test.cpp ${PHASESHIFT_SOURCES_TESTS})
+    target_include_directories(phaseshift_audio_block_ol_test PUBLIC ${PHASESHIFT_INCLUDES})
+    target_link_libraries(phaseshift_audio_block_ol_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    add_test(NAME phaseshift_audio_block_ol_test COMMAND phaseshift_audio_block_ol_test)
+
     add_executable(phaseshift_audio_block_ola_test phaseshift/audio_block/ola_test.cpp ${PHASESHIFT_SOURCES_TESTS})
     target_include_directories(phaseshift_audio_block_ola_test PUBLIC ${PHASESHIFT_INCLUDES})
     target_link_libraries(phaseshift_audio_block_ola_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
