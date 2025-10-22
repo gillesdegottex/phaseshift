@@ -6,7 +6,6 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  # `pip` list needs to be sync with pyproject.toml:build-system:requires array.
   - gcc==10.3  # As close as possible as the cibuildwheel gcc (which is uncontrollable)
   - gxx==10.3  # As close as possible as the cibuildwheel gcc (which is uncontrollable)
   - libsndfile==1.2.2
@@ -26,9 +25,4 @@ dependencies:
     - numpy==2.2.2
     - scipy==1.15.1
     - soundfile==0.13.1
-    - cibuildwheel==2.22.0
     - coloredlogs==15.0.1
-    - sphinx==8.2.3
-    - sphinx-copybutton==0.5.2
-    - sphinx-mdinclude==0.6.2
-    - furo==2024.8.6
