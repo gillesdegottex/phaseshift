@@ -56,6 +56,20 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Conda - Setup
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        activate-environment: phaseshift-ci
+        environment-file: environment-ci-${{ matrix.os }}.yml
+        python-version: '3.11'
+    - name: Conda - info
+      shell: bash -el {0}
+      run: conda info
+    - name: Conda - list
+      shell: bash -el {0}
+      run: conda list
+
     # Doesnt't help find libraries on Windows workers
     # - name: Add paths for Windows builds
     #   run: |
@@ -63,13 +77,14 @@ jobs:
 
     - name: Set reusable strings
       id: strings
-      shell: bash
+      shell: bash -el {0}
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     # TODO Add IPP, FFTW3, AVUtil, KissFFT, PFFFT, FFTS
     - name: Configure with CMake
       if: matrix.os == 'ubuntu-24.04'
+      shell: bash -el {0}
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
@@ -84,6 +99,7 @@ jobs:
 
     - name: Configure with CMake
       if: matrix.os == 'macos-14'
+      shell: bash -el {0}
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
@@ -98,6 +114,7 @@ jobs:
     # TODO Add IPP, FFTW3, KissFFT, PFFFT, FFTS
     - name: Configure with CMake
       if: matrix.os == 'windows-latest'
+      shell: bash -el {0}
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
@@ -109,9 +126,10 @@ jobs:
         -S ${{ github.workspace }}/ext/fftscarf
 
     - name: Build
-      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
+      shell: bash -el {0}
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}/test
+      shell: bash -el {0}
       run: ctest --output-on-failure --build-config ${{ matrix.build_type }}  # -VV 
