@@ -9,6 +9,7 @@ dependencies:
   # `pip` list needs to be sync with pyproject.toml:build-system:requires array.
   - clang==20.1.3  # 20.1.3 from Github Action (might be wrong for cibuildwheel); As close as possible as the cibuildwheel gcc (which is uncontrollable)
   - libsndfile==1.2.2
+  - libboost-devel==1.89.0
   - libflac==1.4.3
   - libvorbis==1.3.7
   - libopus==1.3.1
