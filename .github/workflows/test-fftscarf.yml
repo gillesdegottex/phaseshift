@@ -83,7 +83,7 @@ jobs:
 
     # TODO Add IPP, FFTW3, AVUtil
     - name: Configure with CMake
-      if: matrix.os == 'ubuntu-24.04' && matrix.c_compiler == 'gcc'
+      if: ${{ (matrix.os == 'ubuntu-24.04') && (matrix.c_compiler == 'gcc') }}
       shell: bash -el {0}
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
@@ -100,7 +100,7 @@ jobs:
 
     # TODO Add IPP, FFTW3, AVUtil
     - name: Configure with CMake
-      if: matrix.os == 'ubuntu-24.04' && matrix.c_compiler == 'clang'
+      if: ${{ (matrix.os == 'ubuntu-24.04') && (matrix.c_compiler == 'clang') }}
       shell: bash -el {0}
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
