@@ -81,9 +81,9 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    # TODO Add IPP, FFTW3, AVUtil, KissFFT, PFFFT, FFTS
+    # TODO Add IPP, FFTW3, AVUtil
     - name: Configure with CMake
-      if: matrix.os == 'ubuntu-24.04'
+      if: matrix.os == 'ubuntu-24.04' && matrix.c_compiler == 'gcc'
       shell: bash -el {0}
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
@@ -94,6 +94,24 @@ jobs:
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_FFT_PFFFT=ON
         -DFFTSCARF_FFT_FFTS=ON
+        -DFFTSCARF_FFT_KISSFFT=ON
+        -DFFTSCARF_BUILD_TEST=ON
+        -S ${{ github.workspace }}/ext/fftscarf
+
+    # TODO Add IPP, FFTW3, AVUtil
+    - name: Configure with CMake
+      if: matrix.os == 'ubuntu-24.04' && matrix.c_compiler == 'clang'
+      shell: bash -el {0}
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}        
+        -DFFTSCARF_FFT_FFTREAL=ON
+        -DFFTSCARF_FFT_OOURA=ON
+        -DFFTSCARF_FFT_PFFFT=ON
+        -DFFTSCARF_FFT_FFTS=OFF
+        -DFFTSCARF_FFT_KISSFFT=ON
         -DFFTSCARF_BUILD_TEST=ON
         -S ${{ github.workspace }}/ext/fftscarf
 
