@@ -65,8 +65,9 @@ jobs:
       id: strings
       shell: bash
       run: |
-        echo "build-output-dir=${{ github.workspace }}/ext/fftscarf/build" >> "$GITHUB_OUTPUT"
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+    # TODO Add IPP, FFTW3, AVUtil, KissFFT, PFFFT, FFTS
     - name: Configure with CMake
       if: matrix.os == 'ubuntu-24.04'
       run: >
@@ -78,6 +79,7 @@ jobs:
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_FFT_PFFFT=ON
         -DFFTSCARF_FFT_FFTS=ON
+        -DFFTSCARF_BUILD_TEST=ON
         -S ${{ github.workspace }}/ext/fftscarf
 
     - name: Configure with CMake
@@ -90,8 +92,26 @@ jobs:
         -DFFTSCARF_FFT_FFTREAL=ON
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_FFT_VDSP=ON
+        -DFFTSCARF_BUILD_TEST=ON
+        -S ${{ github.workspace }}/ext/fftscarf
+
+    # TODO Add IPP, FFTW3, KissFFT, PFFFT, FFTS
+    - name: Configure with CMake
+      if: matrix.os == 'windows-latest'
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}        
+        -DFFTSCARF_FFT_FFTREAL=ON
+        -DFFTSCARF_FFT_OOURA=ON
+        -DFFTSCARF_BUILD_TEST=ON
         -S ${{ github.workspace }}/ext/fftscarf
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+
+    - name: Test
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}/test
+      run: ctest --output-on-failure --build-config ${{ matrix.build_type }}  # -VV 
