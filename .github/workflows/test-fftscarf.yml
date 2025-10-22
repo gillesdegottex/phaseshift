@@ -26,10 +26,10 @@ jobs:
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             c_compiler: gcc
             cpp_compiler: g++
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             c_compiler: clang
             cpp_compiler: clang++
           - os: macos-14
@@ -39,7 +39,7 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
         exclude:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             c_compiler: cl
           - os: macos-14
             c_compiler: cl
