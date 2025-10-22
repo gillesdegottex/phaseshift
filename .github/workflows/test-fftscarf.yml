@@ -147,6 +147,12 @@ jobs:
       shell: bash -el {0}
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
+    - name: List FFT libraries
+      shell: bash -el {0}
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}/test
+      run: |
+        ./test_version
+
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}/test
       shell: bash -el {0}
