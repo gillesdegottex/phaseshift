@@ -94,7 +94,7 @@ jobs:
       if: ${{ (matrix.os == 'ubuntu-24.04') && (matrix.c_compiler == 'gcc') }}
       shell: bash -el {0}
       run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}"
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}        
@@ -111,7 +111,7 @@ jobs:
       if: ${{ (matrix.os == 'ubuntu-24.04') && (matrix.c_compiler == 'clang') }}
       shell: bash -el {0}
       run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}"
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}        
@@ -127,7 +127,7 @@ jobs:
       if: matrix.os == 'macos-14'
       shell: bash -el {0}
       run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}"
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}        
@@ -142,18 +142,18 @@ jobs:
       if: matrix.os == 'windows-latest'
       shell: bash -el {0}
       run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}"
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}        
         -DFFTSCARF_FFT_FFTREAL=ON
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_BUILD_TEST=ON
-        -S '${{ github.workspace }}\ext\fftscarf'
+        -S "${{ github.workspace }}\ext\fftscarf"
 
     - name: Build
       shell: bash -el {0}
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+      run: cmake --build "${{ steps.strings.outputs.build-output-dir }}" --config "${{ matrix.build_type }}"
 
     - name: List FFT libraries
       shell: bash -el {0}
