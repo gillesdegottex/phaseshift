@@ -312,7 +312,7 @@ phaseshift::ab::ola* phaseshift::ab::ola_builder::build(phaseshift::ab::ola* pab
     pab->m_status.flushing = false;
     pab->m_win_center_idx = 0;
 
-    // Only usefull when using proc_in_out_same_size(.)
+    // Only usefull when using proc_same_size(.)
     pab->m_rt_out_size_max = m_rt_out_size_max;
     pab->m_rt_out.resize_allocation(2*std::max<int>(m_winlen+m_timestep, m_rt_out_size_max));
     pab->m_rt_out.clear();

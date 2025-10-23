@@ -93,6 +93,9 @@ namespace phaseshift {
 
             virtual void flush(phaseshift::ringbuffer<float>* pout);
 
+            //! [samples]
+            virtual int latency() const {return winlen();}
+
             virtual void reset();
 
             inline int stat_rt_nb_failed() const {return m_stat_rt_nb_failed;}
