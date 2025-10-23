@@ -160,6 +160,9 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}/test
       run: |
         ./test_version
+        ./test_misc
+        ./test_fftlibs
+        ./test_fftplanmanager
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}/test
