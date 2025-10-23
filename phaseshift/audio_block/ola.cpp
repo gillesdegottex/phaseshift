@@ -226,7 +226,7 @@ void phaseshift::ab::ola::reset() {
     m_out_sum_win.clear();
 
     assert(m_win.size_max() == winlen());
-    // phaseshift::win_hamming(&(m_win), winlen);  // Not changed, no need to re-build it.
+    // phaseshift::win_hamming(&(m_win), winlen);  // Should not be changed, no need to re-build it.
 
     if (m_first_frame_at_t0) {
         m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;

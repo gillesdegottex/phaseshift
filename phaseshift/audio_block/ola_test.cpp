@@ -288,7 +288,7 @@ TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
         const int timestep = fs*0.005;
         const int test_signal_length = 3*fs;  // 3 seconds
         
-        // Create OLA instance
+        // Create OLA builder
         ola_with_extra_tests_builder builder;
         builder.set_fs(fs);
         builder.set_winlen(winlen);
@@ -326,11 +326,12 @@ TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
                 output_signal.clear();
 
                 // Process input signal chunk by chunk
+                phaseshift::ringbuffer<float> input_chunk;
+                input_chunk.resize_allocation(chunk_size);
                 for (int i = 0; i < test_signal_length; i += chunk_size) {
                     int current_chunk_size = std::min(chunk_size, test_signal_length - i);
                     
-                    phaseshift::ringbuffer<float> input_chunk, output_chunk;
-                    input_chunk.resize_allocation(current_chunk_size);
+                    input_chunk.clear();
                     input_chunk.push_back(input_signal, i, current_chunk_size);
 
                     ola_instance->proc_same_size(input_chunk, &output_signal);
@@ -360,6 +361,115 @@ TEST_CASE("audio_block_ola_proc_reset", "[audio_block_ola_proc_reset]") {
             }
 
             delete ola_instance;
+        }
+    }
+}
+
+
+TEST_CASE("audio_block_ola_latency", "[audio_block_ola_latency]") {
+    phaseshift::dev::check_compilation_options();
+
+    const int repeat = 2;
+    const int fs = 44100;
+
+    std::vector<int> winlens = {256, 384, 441, 512, 1000, 1024, 2048, 4410, 8192};
+    // std::vector<int> winlens = {882};
+    for (const int winlen : winlens) {
+
+        std::vector<int> timesteps = {1, 32, 44, 220, 256, 441, 512, 2048};
+        for (const int timestep : timesteps) {
+            if (timestep >= winlen) {
+                continue;
+            }
+
+            // DOUT << "winlen=" << winlen << ", timestep=" << timestep << std::endl;
+
+            // Create OLA builder
+            ola_with_extra_tests_builder builder;
+            builder.set_fs(fs);
+            builder.set_winlen(winlen);
+            builder.set_timestep(timestep);
+            builder.set_first_frame_at_t0(true);
+
+            std::vector<int> chunk_sizes = {44, 64, 512, 4096};
+            for (const int chunk_size : chunk_sizes) {
+
+                const int test_signal_length = fs;
+
+                builder.set_in_out_same_size_max(chunk_size);
+
+                ola_with_extra_tests* ola_instance = builder.build();
+                ola_instance->wavsize = test_signal_length;
+
+                // Create test signal - A Dirac at the beginning of the signal
+                phaseshift::ringbuffer<float> input_signal;
+                input_signal.resize_allocation(test_signal_length);
+                input_signal.clear();
+                input_signal.push_back(0.0f, test_signal_length);
+                input_signal[0] = 0.9f;  // Make a Dirac signal
+
+                phaseshift::ringbuffer<float> output_signal_ref;
+                output_signal_ref.resize_allocation(test_signal_length);
+
+                for (int rep=0; rep<repeat; ++rep) {
+                    // DOUT << "fs=" << fs << ", chunk_size=" << chunk_size << ", repeat=" << rep << std::endl;
+
+                    // Test proc_in_out_same_size - processing chunk by chunk
+                    phaseshift::ringbuffer<float> output_signal;
+                    output_signal.resize_allocation(test_signal_length);
+                    output_signal.clear();
+
+                    // Process input signal chunk by chunk
+                    phaseshift::ringbuffer<float> input_chunk;
+                    input_chunk.resize_allocation(chunk_size);
+                    for (int i = 0; i < test_signal_length; i += chunk_size) {
+                        int current_chunk_size = std::min(chunk_size, test_signal_length - i);
+                        
+                        input_chunk.clear();
+                        input_chunk.push_back(input_signal, i, current_chunk_size);
+
+                        ola_instance->proc_same_size(input_chunk, &output_signal);
+                    }
+
+                    REQUIRE_TS(ola_instance->stat_rt_nb_failed() == 0);
+                    REQUIRE_TS(ola_instance->stat_rt_out_size_min() < chunk_size);
+
+                    // Verify output size matches input size
+                    REQUIRE_TS(output_signal.size() == input_signal.size());
+                    REQUIRE_TS(output_signal.size() == test_signal_length);
+
+                    // Verify that the OLA instance was called (frame processing occurred)
+                    REQUIRE_TS(ola_instance->nbcalls > 0);
+
+                    if (rep == 0) {
+                        output_signal_ref = output_signal;
+
+                        // phaseshift::ab::sndfile_writer::write("input_signal.wav", fs, input_signal);
+                        // phaseshift::ab::sndfile_writer::write("output_signal.wav", fs, output_signal);
+    
+                    } else {
+                        // Compare with reference
+                        REQUIRE_TS(phaseshift::dev::signals_equal_strictly(output_signal_ref, output_signal));
+                    }
+
+                    int measured_latency = 0;
+                    for (; measured_latency < output_signal.size();) {
+                        if (output_signal[measured_latency] > 0.5f) {
+                            break;
+                        }
+                        measured_latency++;
+                    }
+
+                    // DOUT << "theoretical latency=" << ola_instance->latency() << std::endl;
+                    // DOUT << "measured    latency=" << latency << std::endl;
+
+                    REQUIRE_TS(measured_latency == ola_instance->latency());
+
+                    ola_instance->reset();
+                }
+
+                delete ola_instance;
+            }
         }
     }
 }

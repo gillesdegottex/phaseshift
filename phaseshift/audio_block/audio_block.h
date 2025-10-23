@@ -19,7 +19,7 @@ namespace phaseshift {
     class audio_block {
 
      protected:
-        float m_fs = -1.0f;  // Make it float since it will most often end up being converted to float anyway.
+        float m_fs = -1.0f;  // Make it float since it will, in most use case, be converted to float anyway.
 
         #ifdef PHASESHIFT_DEV_PROFILING
          public:
@@ -44,6 +44,7 @@ namespace phaseshift {
         //! The sampling frequency of the processed signal. Of float type, because it will most often end up being converted to float anyway.
         inline float fs() const {return m_fs;}
 
+        //! Main entry function for processing an input (without any given output)
         virtual void proc(const phaseshift::ringbuffer<float>& in) {
             proc_time_start();
 
@@ -52,7 +53,11 @@ namespace phaseshift {
         virtual void flush() {
         }
 
+        //! Main entry function for transforming an input.
+        //  This function does not realize the latency returned by latency(.)
+        //  It is thus usefull for offline processing.
         virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+            assert(pout);
             proc_time_start();
 
             pout->push_back(in);
@@ -60,14 +65,37 @@ namespace phaseshift {
             proc_time_end(in.size()/fs());
         }
 
+        //! This function always output in `pout` the same number of samples that are provided in `in`.
+        //  It is quite handy for real-time processing.
+        //  Because no sample is available as long as the latency is not expired, this function will prepend
+        //  the output with the necessary zeros.
+        virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+            proc(in, pout);
+        }
+
         virtual void flush(phaseshift::ringbuffer<float>* pout) {
             (void)pout;
         }
 
-        //! [samples]
+        //! When using proc_same_size(.), the latency is the delay an audio event (ex. a click)
+        //  go through processing before re-appearing in the output.
+        //  When using proc(.), this latency is not realized. I.e. the proc(.) function will not output any
+        //  sample until the latency is expired.
+        //  Ex. When working with an audio buffer of 256 samples (ex.), the audio system will have at least
+        //      a latency of 256 samples. Adding a audio block, which inherits from phaseshift::audio_block,
+        //      that has a latency of 882 (ex.), the final overall latency will be of 256+882=1138 samples.
+        //  Warning: It has nothing to do with the computational time to compute the output (except if the
+        //      execution time is greater than the audio system latency, but in that case, the incurred
+        //      underruns will tell you about it).
         virtual int latency() const {return 0;}
 
-        virtual void reset() {
+        //! Reset the audio block, so that its state becomes exactly the same as when it was just built by
+        //  its builder.
+        //  The parameters set by the builder are preserved through a reset()
+        //  It should not do any memory re-allocations.
+        //  This function should not be virtual, since one reset() call should explicitly recall its
+        //  parent reset() function.
+        inline void reset() {
             // m_fs need to be preserved as is.
             // Carry the profiling statistics over the reset, thus do not reset them.
         }
@@ -97,9 +125,11 @@ namespace phaseshift {
         //! Set the sampling frequency.
         inline void set_fs(float fs) {m_fs = fs;}
 
-        //! The sampling frequency of the processed signal. Of float type, because it will most often end up being converted to float anyway.
+        //! The sampling frequency of the processed signal. Of float type, since it will, in most use case, be converted to float anyway.
         inline float fs() const {return m_fs;}
 
+        //! Build the corresponding audio block.
+        //  And audio block is _not_ dependent on its builder. Thus, the builder can be discarded after being used.
         audio_block* build(audio_block* pab) {
             assert((fs() > 0) && "Sampling frequency must be >0. Hint: It is necessary to call set_fs(.) before calling build(.).");
             return pab;
