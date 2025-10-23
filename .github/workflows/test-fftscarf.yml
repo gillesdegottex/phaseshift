@@ -149,7 +149,7 @@ jobs:
         -DFFTSCARF_FFT_FFTREAL=ON
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_BUILD_TEST=ON
-        -S ${{ github.workspace }}\ext\fftscarf
+        -S '${{ github.workspace }}\ext\fftscarf'
 
     - name: Build
       shell: bash -el {0}
