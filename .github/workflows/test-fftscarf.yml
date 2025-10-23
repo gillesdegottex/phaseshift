@@ -70,6 +70,14 @@ jobs:
       shell: bash -el {0}
       run: conda list
 
+    - name: Conda - Cache
+      uses: actions/cache@v4
+      with:
+        path: ~/conda_pkgs_dir
+        key:
+          test-fftscarf-conda-${{ matrix.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-${{
+          hashFiles('environment-ci-${{ matrix.os }}.yml') }}  # OK
+
     # Doesnt't help find libraries on Windows workers
     # - name: Add paths for Windows builds
     #   run: |
@@ -141,7 +149,7 @@ jobs:
         -DFFTSCARF_FFT_FFTREAL=ON
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_BUILD_TEST=ON
-        -S ${{ github.workspace }}/ext/fftscarf
+        -S ${{ github.workspace }}\ext\fftscarf
 
     - name: Build
       shell: bash -el {0}
