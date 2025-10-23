@@ -12,3 +12,5 @@ dependencies:
   - libboost-headers==1.89.0
   - python==3.11
   - pip==25.0.1
+  - pkg-config==0.29.2
+  - pkgconfig==1.5.5

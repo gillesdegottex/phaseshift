@@ -150,6 +150,8 @@ jobs:
         -DFFTSCARF_FFT_OOURA=ON
         -DFFTSCARF_BUILD_TEST=ON
         -S "${{ github.workspace }}\ext\fftscarf"
+      env:
+        PKG_CONFIG_PATH: $CONDA_PREFIX/lib/pkgconfig/
 
     - name: Build
       shell: bash -el {0}
