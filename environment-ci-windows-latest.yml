@@ -12,5 +12,3 @@ dependencies:
   - libboost-headers==1.89.0
   - python==3.11
   - pip==25.0.1
-  - pip:
-    - ipp-static==2021.12.1
