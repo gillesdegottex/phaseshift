@@ -89,23 +89,49 @@ namespace phaseshift {
 
     // This one fit a minima
     //    The minimum is at coordinate: X = min_idx + min_df,  Y = min_val
-    inline void parabolic_fit_minima(const phaseshift::vector<float>& ys, int* pmin_idx, float* pmin_df, float* pmin_val=nullptr) {
-        int minidx = phaseshift::argmin<float>(ys);
+    template<typename value_type, typename array_type>
+    inline void parabolic_fit_minima(const array_type& ys, int* pmin_idx, value_type* pmin_df, value_type* pmin_val=nullptr) {
+        int minidx = phaseshift::argmin<value_type>(ys);
         *pmin_idx = minidx;
         *pmin_df = 0.0f;
         if (pmin_val != nullptr) *pmin_val = ys[minidx];
         if (minidx > 0 && minidx < static_cast<int>(ys.size()) - 1) {
-            float y_m1 = ys[minidx - 1];
-            float y    = ys[minidx];
-            float y_p1 = ys[minidx + 1];
+            value_type y_m1 = ys[minidx - 1];
+            value_type y    = ys[minidx];
+            value_type y_p1 = ys[minidx + 1];
             if ((y_m1 > y) && (y < y_p1)) {
-                float A = 0.5f * (y_m1 + y_p1) - y;
+                value_type A = static_cast<value_type>(0.5) * (y_m1 + y_p1) - y;
                 if (A > 0.0f) {
-                    float B = 0.5f * (y_p1 - y_m1);
-                    float C = y;
-                    float min_df = -B / (2.0f * A);
+                    value_type B = static_cast<value_type>(0.5) * (y_p1 - y_m1);
+                    value_type C = y;
+                    value_type min_df = -B / (static_cast<value_type>(2.0) * A);
                     *pmin_df = min_df;
                     if (pmin_val != nullptr) *pmin_val = A * min_df * min_df + B * min_df + C;
+                }
+            }
+        }
+    }
+
+    // This one fit a maxima
+    //    The maxima is at coordinate: X = max_idx + max_df,  Y = max_val
+    template<typename value_type, typename array_type>
+    inline void parabolic_fit_maxima(const array_type& ys, int* pmax_idx, value_type* pmax_df, value_type* pmax_val=nullptr) {
+        int maxidx = phaseshift::argmax<value_type>(ys);
+        *pmax_idx = maxidx;
+        *pmax_df = 0.0f;
+        if (pmax_val != nullptr) *pmax_val = ys[maxidx];
+        if (maxidx > 0 && maxidx < static_cast<int>(ys.size()) - 1) {
+            value_type y_m1 = ys[maxidx - 1];
+            value_type y    = ys[maxidx];
+            value_type y_p1 = ys[maxidx + 1];
+            if ((y_m1 < y) && (y > y_p1)) {
+                value_type A = static_cast<value_type>(0.5) * (y_m1 + y_p1) - y;
+                if (A < 0.0f) {
+                    value_type B = static_cast<value_type>(0.5) * (y_p1 - y_m1);
+                    value_type C = y;
+                    value_type max_df = -B / (static_cast<value_type>(2.0) * A);
+                    *pmax_df = max_df;
+                    if (pmax_val != nullptr) *pmax_val = A * max_df * max_df + B * max_df + C;
                 }
             }
         }
