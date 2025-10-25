@@ -1,4 +1,4 @@
-![workflow](https://github.com/gillesdegottex/phaseshift/actions/workflows/cmake-multi-platform.yml/badge.svg)
+![workflow](https://github.com/gillesdegottex/phaseshift/actions/workflows/test-multi-platform.yml/badge.svg)
 
 The goal of phaseshift library is to provide basic construction blocks to build technologies about audio signal processing.
 It will stay low-level (no compilation of plugins, graphical interface, etc. that's not the goal here).
