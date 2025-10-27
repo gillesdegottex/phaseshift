@@ -326,6 +326,22 @@ namespace phaseshift {
         #endif
     }
 
+    //! Fill ringbuffer with Gaussian noise
+    template<typename ringbuffer_t>
+    inline void push_back_noise_normal(ringbuffer_t& rb, int n, std::mt19937& gen, typename ringbuffer_t::value_type mean = 0.0, typename ringbuffer_t::value_type stddev = 1.0, typename ringbuffer_t::value_type limit = 0.99) {
+
+        std::normal_distribution<typename ringbuffer_t::value_type> dist;
+
+        for (int i=0; i < n; ++i) {
+            auto value = dist(gen) * stddev + mean;
+            if (value > limit)
+                value = limit;
+            if (value < -limit)
+                value = -limit;
+            rb.push_back(value);
+        }
+    }
+
 }  // namespace phaseshift
 
 #endif  // PHASESHIFT_SIGPROC_SIGPROC_H_

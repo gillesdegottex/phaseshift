@@ -12,6 +12,7 @@
 #include <acbench/time_elapsed.h>
 #include <phaseshift/dev/time_elapsed_summary.h>
 #include <phaseshift/audio_block/sndfile.h>
+#include <phaseshift/dev/catch2_extra.h>
 
 #include <string>
 

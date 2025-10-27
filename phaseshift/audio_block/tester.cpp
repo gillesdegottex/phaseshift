@@ -6,7 +6,6 @@
 //     https://github.com/gillesdegottex/phaseshift
 
 #include <phaseshift/audio_block/tester.h>
-#include <phaseshift/dev/catch2_extra.h>
 
 #include <catch2/catch_test_macros.hpp>
 
