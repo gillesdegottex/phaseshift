@@ -8,6 +8,8 @@
 #ifndef PHASESHIFT_AUDIO_BLOCK_SNDFILE_H_
 #define PHASESHIFT_AUDIO_BLOCK_SNDFILE_H_
 
+#ifdef PHASESHIFT_SUPPORT_SNDFILE
+
 #include <phaseshift/audio_block/audio_block.h>
 
 extern "C" {
@@ -253,5 +255,7 @@ namespace phaseshift {
 
     }  // namespace ab
 }  // namespace phaseshift
+
+#endif  // PHASESHIFT_SUPPORT_SNDFILE
 
 #endif  // PHASESHIFT_AUDIO_BLOCK_SNDFILE_H_

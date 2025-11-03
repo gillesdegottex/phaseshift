@@ -166,6 +166,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
     message(STATUS)
     message(STATUS "libsndfile (local build)")
+    set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
     set(PHASESHIFT_SOURCES_SUPPORT ${PHASESHIFT_SOURCES_SUPPORT} ${PROJECT_NAME}/audio_block/sndfile.cpp)
 
     # Can't do that as it breaks some configurations about testing
@@ -206,6 +207,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   elseif (PHASESHIFT_SUPPORT_SNDFILE)
     message(STATUS)
     message(STATUS "libsndfile")
+    set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
 
     if (WIN32)
       find_path(LIBSNDFILE_INCLUDE_DIRS sndfile.h REQUIRED PATHS "C:/Program Files/libsndfile/include")
