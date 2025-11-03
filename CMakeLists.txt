@@ -159,6 +159,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   # add_definitions(-DEIGEN_DEFAULT_TO_ROW_MAJOR) # Eigen is tested/developped with column major order. But row major make it compatible with numpy I think.
   include_directories(ext/eigen)
   set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/eigen)
+  add_definitions(-DEIGEN_MPL2_ONLY)
   set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DEIGEN_MPL2_ONLY)
   message(STATUS "  Include directory: " ${CMAKE_CURRENT_SOURCE_DIR}/ext/eigen)
 
@@ -166,6 +167,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
     message(STATUS)
     message(STATUS "libsndfile (local build)")
+    add_definitions(-DPHASESHIFT_SUPPORT_SNDFILE)
     set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
     set(PHASESHIFT_SOURCES_SUPPORT ${PHASESHIFT_SOURCES_SUPPORT} ${PROJECT_NAME}/audio_block/sndfile.cpp)
 
@@ -174,7 +176,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
 
     # TODO(GD) Use custom_command(.) and custom_target(.)
     include(ExternalProject)
-    ExternalProject_Add(libsndfile
+    ExternalProject_Add(libsndfile_local
       URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/libsndfile
       SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_src
       # CONFIGURE_COMMAND ./config -w no-hw no-shared no-egd --prefix=${CMAKE_CURRENT_BINARY_DIR}/openssl_install --openssldir="" "-DNDEBUG -O3"
@@ -202,11 +204,13 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
       set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.so)
       # set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.a)
       # set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.a)
+      set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} mpg123 mp3lame)
     endif()
 
   elseif (PHASESHIFT_SUPPORT_SNDFILE)
     message(STATUS)
     message(STATUS "libsndfile")
+    add_definitions(-DPHASESHIFT_SUPPORT_SNDFILE)
     set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
 
     if (WIN32)
@@ -239,7 +243,7 @@ add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev
 
 # Wait for sndfile to be built before building anything with phaseshift
 if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
-  add_dependencies(${PROJECT_NAME} libsndfile )
+  add_dependencies(${PROJECT_NAME} libsndfile_local )
 endif()
 
 set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} ${CMAKE_CURRENT_SOURCE_DIR}/phaseshift/audio_block/tester.cpp ${CMAKE_CURRENT_SOURCE_DIR}/phaseshift/dev/catch2_extra.cpp)
