@@ -18,12 +18,10 @@
 
 namespace phaseshift {
 
-    namespace ab {
-
         // OverLap Add (OLA): Segment the input signal into frames and reconstruct a new signal based on the processed frames.
         class ola : public phaseshift::audio_block {
 
-         public:
+            public:
             struct proc_status {
                 bool first_frame;
                 bool last_frame;
@@ -32,20 +30,20 @@ namespace phaseshift {
                 bool flushing;
                 inline std::string to_string() const {
                     return "first_frame=" + std::to_string(first_frame) +
-                           " last_frame=" + std::to_string(last_frame) +
-                           " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
-                           " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
-                           " flushing=" + std::to_string(flushing);
+                            " last_frame=" + std::to_string(last_frame) +
+                            " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
+                            " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
+                            " flushing=" + std::to_string(flushing);
                 }
             };
 
-         protected:
+            protected:
             phaseshift::vector<float> m_win;
 
             // This function should be overwritten by the custom class that inherit phaseshift::ola
-            virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ab::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx);
+            virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx);
 
-         private:
+            private:
             proc_status m_status;
 
             phaseshift::ringbuffer<float> m_frame_rolling;
@@ -74,18 +72,26 @@ namespace phaseshift {
             int m_stat_rt_nb_failed = 0;
             int m_stat_rt_out_size_min = phaseshift::int32::max();
 
-         protected:
+            protected:
             int m_timestep = -1;
 
             ola();
 
-         public:
+            public:
 
             virtual ~ola();
 
             inline int winlen() const {return m_win.size();}
             inline const phaseshift::vector<float>& win() const {return m_win;}
             inline int timestep() const {return m_timestep;}
+            //! Returns the minimum number of samples (if not 0) that can be outputted in one call to proc(.)
+            inline int min_output_size() const {
+                return m_timestep;
+            }
+            //! For a given chunk size, returns the maximum number of samples that can be outputted in one call to proc(.)
+            inline int max_output_size(int chunk_size) const {
+                return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
+            }
 
             virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
@@ -106,8 +112,17 @@ namespace phaseshift {
             friend class ola_builder;
         };
 
+        namespace dev {
+            // This function implements all the possible tests an OLA block should pass:
+            //    - Can process noise, silence, click, saturated signal, sinusoid, harmonics
+            //    - TODO Test speed?
+            //    - (audio_block_ola_builder_test_singlethread() tests for singlethreaded building and processing)
+            //    - (audio_block_builder_test() tests for multithreading)
+            void audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold=phaseshift::db2lin(-100.0f));
+        }
+
         class ola_builder : public phaseshift::audio_block_builder {
-         protected:
+            protected:
             int m_winlen = -1;
             int m_timestep = -1;
             bool m_first_frame_at_t0 = true;
@@ -115,7 +130,7 @@ namespace phaseshift {
             int m_extra_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
 
-         public:
+            public:
             inline void set_winlen(int winlen) {
                 assert(winlen > 0);
                 m_winlen = winlen;
@@ -141,9 +156,18 @@ namespace phaseshift {
             inline int timestep() const {return m_timestep;}
 
             ola* build(ola* pab);
-            ola* build() {return build(new phaseshift::ab::ola());}
+            ola* build() {return build(new phaseshift::ola());}
         };
-    }
+
+        namespace dev {
+            // This function implements all the possible tests an OLA block builder should pass:
+            //    - Handles multithreaded building and processing
+            //    - Handles various fs
+            //    - Handles valid combinations of window lengths and timesteps
+            //    - Handles various chunk sizes
+            void audio_block_ola_builder_test_singlethread();
+            void audio_block_ola_builder_test();
+        }
 
 }  // namespace phaseshift
 

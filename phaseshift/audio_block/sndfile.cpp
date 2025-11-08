@@ -20,7 +20,7 @@ inline bool ps_starts_with(std::string_view str, std::string_view prefix) {
 }
 
 
-std::string phaseshift::ab::sndfile::version() {
+std::string phaseshift::sndfile::version() {
     char version[128];
     sf_command(nullptr, SFC_GET_LIB_VERSION, version, sizeof(version));
     std::string version_str = version;
@@ -28,21 +28,21 @@ std::string phaseshift::ab::sndfile::version() {
     return version_str;
 }
 
-phaseshift::ab::sndfile::sndfile(int chunk_size_max) {
+phaseshift::sndfile::sndfile(int chunk_size_max) {
     assert(chunk_size_max > 0);
     m_chunk_size_max = chunk_size_max;
     m_chunk = new float[m_chunk_size_max];
     memset(&m_sf_info, 0, sizeof(m_sf_info));
 }
 
-void phaseshift::ab::sndfile::close() {
+void phaseshift::sndfile::close() {
     if (m_file_handle) {
         sf_close(m_file_handle);
         m_file_handle = nullptr;
     }
     memset(&m_sf_info, 0, sizeof(m_sf_info));
 }
-phaseshift::ab::sndfile::~sndfile() {
+phaseshift::sndfile::~sndfile() {
     close();
     if (m_chunk!=nullptr) {
         delete[] m_chunk;
@@ -50,7 +50,7 @@ phaseshift::ab::sndfile::~sndfile() {
     }
 }
 
-float phaseshift::ab::sndfile_reader::get_fs(const std::string& file_path) {
+float phaseshift::sndfile_reader::get_fs(const std::string& file_path) {
     assert(file_path != "");
 
     SF_INFO sf_info;
@@ -70,7 +70,7 @@ float phaseshift::ab::sndfile_reader::get_fs(const std::string& file_path) {
     return fs;
 }
 
-int phaseshift::ab::sndfile_reader::get_nbchannels(const std::string& file_path) {
+int phaseshift::sndfile_reader::get_nbchannels(const std::string& file_path) {
     assert(file_path != "");
 
     SF_INFO sf_info;
@@ -91,7 +91,7 @@ int phaseshift::ab::sndfile_reader::get_nbchannels(const std::string& file_path)
     return nbchannels;
 }
 
-int phaseshift::ab::sndfile_reader::get_nbframes(const std::string& file_path) {
+int phaseshift::sndfile_reader::get_nbframes(const std::string& file_path) {
     assert(file_path != "");
 
     SF_INFO sf_info;
@@ -111,7 +111,7 @@ int phaseshift::ab::sndfile_reader::get_nbframes(const std::string& file_path) {
 
     return nbframes;
 }
-int phaseshift::ab::sndfile_reader::get_bitrate(const std::string& file_path) {
+int phaseshift::sndfile_reader::get_bitrate(const std::string& file_path) {
     assert(file_path != "");
 
     SF_INFO sf_info;
@@ -132,19 +132,19 @@ int phaseshift::ab::sndfile_reader::get_bitrate(const std::string& file_path) {
     return byterate * 8;
 }
 
-phaseshift::ab::sndfile_reader::sndfile_reader(int chunk_size_max)
-    : phaseshift::ab::sndfile(chunk_size_max) {
+phaseshift::sndfile_reader::sndfile_reader(int chunk_size_max)
+    : phaseshift::sndfile(chunk_size_max) {
 }
 
-phaseshift::ab::sndfile_reader* phaseshift::ab::sndfile_reader_builder::open(const std::string& file_path, int chunk_size_max, int channel_id) {
-    phaseshift::ab::sndfile_reader_builder builder;
+phaseshift::sndfile_reader* phaseshift::sndfile_reader_builder::open(const std::string& file_path, int chunk_size_max, int channel_id) {
+    phaseshift::sndfile_reader_builder builder;
     builder.set_file_path(file_path);
     builder.set_chunk_size_max(chunk_size_max);
     builder.set_channel_id(channel_id);
     return builder.open();
 }
 
-phaseshift::ab::sndfile_reader* phaseshift::ab::sndfile_reader_builder::build(phaseshift::ab::sndfile_reader* pab) {
+phaseshift::sndfile_reader* phaseshift::sndfile_reader_builder::build(phaseshift::sndfile_reader* pab) {
     assert(m_file_path != "" && "file_path has not been set");
     pab->m_file_path = m_file_path;
 
@@ -165,11 +165,11 @@ phaseshift::ab::sndfile_reader* phaseshift::ab::sndfile_reader_builder::build(ph
 }
 
 
-phaseshift::ab::sndfile_writer::sndfile_writer(int chunk_size_max)
-    : phaseshift::ab::sndfile(chunk_size_max) {
+phaseshift::sndfile_writer::sndfile_writer(int chunk_size_max)
+    : phaseshift::sndfile(chunk_size_max) {
 }
 
-phaseshift::ab::sndfile_writer* phaseshift::ab::sndfile_writer_builder::build(phaseshift::ab::sndfile_writer* pab) {
+phaseshift::sndfile_writer* phaseshift::sndfile_writer_builder::build(phaseshift::sndfile_writer* pab) {
     assert(m_file_path != "" && "file_path has not been set");
     assert(m_fs > 0 && "fs has not been set");
     pab->m_file_path = m_file_path;
@@ -214,7 +214,7 @@ phaseshift::ab::sndfile_writer* phaseshift::ab::sndfile_writer_builder::build(ph
     return pab;
 }
 
-phaseshift::ab::sndfile_writer* phaseshift::ab::sndfile_writer_builder::open(const std::string& file_path, float fs, int chunk_size_max, int nbchannels, int bitrate) {
+phaseshift::sndfile_writer* phaseshift::sndfile_writer_builder::open(const std::string& file_path, float fs, int chunk_size_max, int nbchannels, int bitrate) {
     sndfile_writer_builder builder;
     builder.set_file_path(file_path);
     builder.set_fs(fs);

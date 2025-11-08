@@ -17,12 +17,10 @@
 
 namespace phaseshift {
 
-    namespace ab {
-
         // OverLap (OL) frame segmentation
         class ol : public phaseshift::audio_block {
 
-         public:
+            public:
             struct proc_status {
                 bool first_frame;
                 bool last_frame;
@@ -31,13 +29,13 @@ namespace phaseshift {
                 bool flushing;
             };
 
-         protected:
+            protected:
             phaseshift::vector<float> m_win;
 
             // This function should be overwritten by the custom class that inherit phaseshift::ol
-            virtual void proc_frame(const phaseshift::vector<float>& in, const phaseshift::ab::ol::proc_status& status, phaseshift::globalcursor_t win_center_idx);
+            virtual void proc_frame(const phaseshift::vector<float>& in, const phaseshift::ol::proc_status& status, phaseshift::globalcursor_t win_center_idx);
 
-         private:
+            private:
             proc_status m_status;
 
             phaseshift::ringbuffer<float> m_frame_rolling;
@@ -52,12 +50,12 @@ namespace phaseshift {
 
             void proc_win(int nb_samples_to_flush);
 
-         protected:
+            protected:
             int m_timestep = -1;
 
             ol();
 
-         public:
+            public:
             virtual ~ol();
 
             inline int winlen() const {return m_win.size();}
@@ -75,15 +73,20 @@ namespace phaseshift {
             friend class ol_builder;
         };
 
+        namespace dev {
+            //! Test any OL block
+            void audio_block_ol_test(phaseshift::ol* pab, int chunk_size);
+        }
+
         class ol_builder : public phaseshift::audio_block_builder {
-         protected:
+            protected:
             int m_winlen = -1;
             int m_timestep = -1;
             bool m_first_frame_at_t0 = true;
             int m_extra_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
 
-         public:
+            public:
             inline void set_winlen(int winlen) {
                 assert(winlen > 0);
                 m_winlen = winlen;
@@ -105,9 +108,13 @@ namespace phaseshift {
             inline int timestep() const {return m_timestep;}
 
             ol* build(ol* pab);
-            ol* build() {return build(new phaseshift::ab::ol());}
+            ol* build() {return build(new phaseshift::ol());}
         };
-    }
+
+        namespace dev {
+            void audio_block_ol_builder_test_singlethread();
+            void audio_block_ol_builder_test();
+        }
 
 }  // namespace phaseshift
 

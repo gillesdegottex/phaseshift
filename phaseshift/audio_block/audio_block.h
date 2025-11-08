@@ -10,9 +10,11 @@
 
 #include <phaseshift/containers/ringbuffer.h>
 #include <phaseshift/utils.h>
+
 #include <acbench/time_elapsed.h>
 
 #include <string>
+#include <functional>
 
 namespace phaseshift {
 
@@ -48,18 +50,22 @@ namespace phaseshift {
         virtual void proc(const phaseshift::ringbuffer<float>& in) {
             proc_time_start();
 
+            // Processing happens here
+
             proc_time_end(in.size()/fs());
         }
         virtual void flush() {
+            // Processing any remaining input data here
         }
 
         //! Main entry function for transforming an input.
         //  This function does not realize the latency returned by latency(.)
         //  It is thus usefull for offline processing.
         virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-            assert(pout);
+            assert(pout != nullptr);
             proc_time_start();
 
+            // Processing happens here
             pout->push_back(in);
 
             proc_time_end(in.size()/fs());
@@ -74,6 +80,7 @@ namespace phaseshift {
         }
 
         virtual void flush(phaseshift::ringbuffer<float>* pout) {
+            // Processing any remaining input data here
             (void)pout;
         }
 
@@ -96,7 +103,7 @@ namespace phaseshift {
         //  This function should not be virtual, since one reset() call should explicitly recall its
         //  parent reset() function.
         inline void reset() {
-            // m_fs need to be preserved as is.
+            // m_fs need to be preserved as is. So don't reset it to anything.
             // Carry the profiling statistics over the reset, thus do not reset them.
         }
     };
@@ -136,6 +143,12 @@ namespace phaseshift {
         }
     };
 
+    namespace dev {
+        //! Run a function multiple time in parallel
+        //  Usefull for running tests of builders and processing in multithreaded mode
+        void audio_block_builder_test(std::function<void(void)> fn, int nb_threads=4);
+
+    }  // namespace dev
 }  // namespace phaseshift
 
 #endif  // PHASESHIFT_AUDIO_BLOCK_H_

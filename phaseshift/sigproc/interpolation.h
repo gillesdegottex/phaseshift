@@ -48,9 +48,9 @@ namespace phaseshift {
         }
 
         inline void reset(phaseshift::vector<float>* pts, phaseshift::vector<float>* pvs) {
-            m_n = 0;
             m_pts = pts;
             m_pvs = pvs;
+            reset();
         }
 
         bool valid() const {

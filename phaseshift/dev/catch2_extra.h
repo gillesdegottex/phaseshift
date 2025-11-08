@@ -18,20 +18,4 @@
 extern std::mutex g_catch2_extra_mutex;
 #define REQUIRE_TS(expr) {std::lock_guard<std::mutex> guard(g_catch2_extra_mutex); REQUIRE(expr);}
 
-namespace phaseshift {
-
-    namespace dev {
-
-        template<class datastruct>
-        void signals_check_nan_inf(const datastruct& data) {
-            for (int n=0; n<data.size(); ++n) {
-                REQUIRE_TS(!std::isnan(data[n]));
-                REQUIRE_TS(!std::isinf(data[n]));
-            }
-        }
-
-    } // namespace dev
-
-}  // namespace phaseshift
-
 #endif  // PHASESHIFT_UTILS_H_

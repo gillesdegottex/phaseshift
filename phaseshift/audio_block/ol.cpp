@@ -8,8 +8,9 @@
 #include <phaseshift/utils.h>
 #include <phaseshift/audio_block/ol.h>
 #include <phaseshift/sigproc/window_functions.h>
+#include <phaseshift/sigproc/sigproc.h>
 
-void phaseshift::ab::ol::proc_frame(const phaseshift::vector<float>& in, const phaseshift::ab::ol::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
+void phaseshift::ol::proc_frame(const phaseshift::vector<float>& in, const phaseshift::ol::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
     (void)in;
     (void)status;
     (void)win_center_idx;
@@ -18,13 +19,13 @@ void phaseshift::ab::ol::proc_frame(const phaseshift::vector<float>& in, const p
     PHASESHIFT_PROF(dbg_proc_frame_time.end(0.0f);)
 }
 
-phaseshift::ab::ol::ol() {
+phaseshift::ol::ol() {
 }
 
-phaseshift::ab::ol::~ol() {
+phaseshift::ol::~ol() {
 }
 
-void phaseshift::ab::ol::proc_win(int nb_samples_to_flush) {
+void phaseshift::ol::proc_win(int nb_samples_to_flush) {
 
     m_frame_input = m_frame_rolling;
     assert(m_frame_input.size() > 0 && "phaseshift::audio_block::ol::proc: The input frame is empty.");
@@ -45,7 +46,7 @@ void phaseshift::ab::ol::proc_win(int nb_samples_to_flush) {
     m_win_center_idx += m_timestep;
 }
 
-void phaseshift::ab::ol::proc(const phaseshift::ringbuffer<float>& in) {
+void phaseshift::ol::proc(const phaseshift::ringbuffer<float>& in) {
     proc_time_start();
 
     int in_n = 0;
@@ -67,7 +68,7 @@ void phaseshift::ab::ol::proc(const phaseshift::ringbuffer<float>& in) {
     proc_time_end(in.size()/fs());
 }
 
-void phaseshift::ab::ol::flush() {
+void phaseshift::ol::flush() {
 
     if (m_frame_rolling.size() == 0)
         return;
@@ -77,7 +78,7 @@ void phaseshift::ab::ol::flush() {
     nb_samples_to_flush_total += m_extra_samples_to_flush;
 
     // Bcs proc(.) will be called before, it will always be smaller than m_winlen
-    assert((m_frame_rolling.size() < winlen()) && "phaseshift::ab::ol::flush: There are more samples in the internal buffer than winlen. Have you called proc(.) at least once before calling flush(.)?");
+    assert((m_frame_rolling.size() < winlen()) && "phaseshift::ol::flush: There are more samples in the internal buffer than winlen. Have you called proc(.) at least once before calling flush(.)?");
 
     // We know here that there are not enough samples to fill a full window
     // The chosen strategy in the following is to process extra uncomplete windows, as long as the middle of window lands before or on the very last sample of the input signal.
@@ -103,7 +104,7 @@ void phaseshift::ab::ol::flush() {
     } while (nb_samples_to_flush_total > 0);
 }
 
-void phaseshift::ab::ol::reset() {
+void phaseshift::ol::reset() {
     phaseshift::audio_block::reset();
 
     assert(m_frame_rolling.size_max() == winlen());
@@ -132,7 +133,7 @@ void phaseshift::ab::ol::reset() {
     m_win_center_idx = 0;
 }
 
-phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
+phaseshift::ol* phaseshift::ol_builder::build(phaseshift::ol* pab) {
     build_time_start();
     phaseshift::audio_block_builder::build(pab);
 
@@ -146,7 +147,7 @@ phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
     if (m_winlen < 0)
         m_winlen = static_cast<int>(fs()*0.010);
     assert((m_winlen > 0) && "winlen has to be >0");
-    assert((m_winlen > m_timestep) && "phaseshift::ab::ol_builder::build: time step has to be smaller or equal to window's length");
+    assert((m_winlen > m_timestep) && "phaseshift::ol_builder::build: time step has to be smaller or equal to window's length");
 
     pab->m_frame_rolling.resize_allocation(m_winlen);
     pab->m_frame_rolling.clear();
@@ -177,4 +178,186 @@ phaseshift::ab::ol* phaseshift::ab::ol_builder::build(phaseshift::ab::ol* pab) {
 
     build_time_end();
     return pab;
+}
+
+// Tests ----------------------------------------------------------------------
+
+// TODO(GD) Factor with audio_block_ola_test code?
+void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
+
+    float duration_s = 3.0f;
+
+    #ifdef NDEBUG
+        std::cerr << "WARNING: phaseshift::dev::audio_block_ol_test: NDEBUG is defined. Asserts are not functioning and thus the test will not detect obvious errors, out-of-bound errors, etc." << std::endl;
+    #endif
+
+    // Static tests
+    assert(pab->fs() > 0.0f);
+    assert(pab->latency() >= 0);
+
+    // std::random_device rd;   // a seed source for the random number engine
+    // std::mt19937 gen(rd());        // Repeatable (otherwise us rd())
+    std::mt19937 gen(0);        // Repeatable (otherwise us rd())
+
+    float fs = pab->fs();
+
+    enum {mode_offline, mode_streaming, mode_realtime};
+    enum {synth_noise, synth_silence, synth_click, synth_saturated, synth_sin, synth_harmonics};
+
+    for (int mode = mode_offline; mode <= mode_streaming; ++mode) {  // TODO(GD) Add mode_realtime
+
+        for (int synth = synth_noise; synth <= synth_harmonics; ++synth) {
+
+            for (int iter=1; iter <= 3; ++iter) {
+
+                // DOUT << "mode=" << mode << ", synth=" << synth << ", iter=" << iter << std::endl;
+
+                // Generate input signal ------------------------------
+
+                phaseshift::ringbuffer<float> signal_in;
+                signal_in.resize_allocation(fs * duration_s);
+                signal_in.clear();
+                if (synth == synth_noise) {
+                    phaseshift::push_back_noise_normal(signal_in, signal_in.capacity(), gen, 0.0f, 0.2f, 0.99f);
+                } else if (synth == synth_silence) {
+                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in[0] = 0.0f;
+                } else if (synth == synth_click) {
+                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in[0] = 0.9f;
+                } else if (synth == synth_saturated) {
+                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in[0] = 1.0f;
+                } else if (synth == synth_sin) {
+                    signal_in.push_back(0.0f, signal_in.capacity());
+                    for (int n = 0; n < signal_in.size(); ++n) {
+                        signal_in[n] = 0.9f * std::sin(2.0f * M_PI * 440.0f * n / fs);
+                    }
+                } else if (synth == synth_harmonics) {
+                    signal_in.push_back(0.0f, signal_in.capacity());
+                    float f0 = 110.0f;
+                    float nb_harmonics = int((0.5*fs-f0)/f0);
+                    float amplitude = 0.9f/nb_harmonics;
+                    for (int n = 0; n < signal_in.size(); ++n) {
+                        for (int h = 0; h <= nb_harmonics; ++h) {
+                            signal_in[n] = amplitude * std::sin(2.0f * M_PI * h * f0 * n / fs);
+                        }
+                    }
+                }
+
+                // Initialize -----------------------------------------
+
+                phaseshift::globalcursor_t nb_samples_total = 0;
+
+                if (mode == mode_offline) {
+
+                    pab->proc(signal_in);
+                    pab->flush();
+
+                    nb_samples_total += signal_in.size();
+
+                } else if (mode == mode_streaming) {
+
+                    phaseshift::ringbuffer<float> chunk_in;
+                    chunk_in.resize_allocation(chunk_size);
+
+                    while (nb_samples_total < signal_in.size()) {
+
+                        chunk_in.clear();
+                        int chunk_size_to_push = std::min<int>(chunk_size, signal_in.size() - nb_samples_total);
+                        chunk_in.push_back(signal_in, nb_samples_total, chunk_size_to_push);
+                        nb_samples_total += chunk_size_to_push;
+
+                        pab->proc(chunk_in);
+                    }
+                    pab->flush();
+
+                // } else if (mode == mode_realtime) {  // TODO(GD) Implement
+
+                //     phaseshift::ringbuffer<float> chunk_in, chunk_out;
+                //     chunk_in.resize_allocation(chunk_size);
+                //     chunk_out.resize_allocation(chunk_size);
+
+                //     while (nb_samples_total < signal_in.size()) {
+
+                //         chunk_in.clear();
+                //         int chunk_size_to_push = std::min<int>(chunk_size, signal_in.size() - nb_samples_total);
+                //         chunk_in.push_back(signal_in, nb_samples_total, chunk_size_to_push);
+                //         nb_samples_total += chunk_size_to_push;
+
+                //         chunk_out.clear();
+                //         pab->proc_same_size(chunk_in, &chunk_out);
+                //         // assert(chunk_out.size() == chunk_size);  // signal is not integer multiple of chunk size, so the last chunk will be smaller than chunk_size
+                //         assert(chunk_out.size() == chunk_in.size());
+            
+                //         signal_out.push_back(chunk_out);
+                //     }
+                }
+
+
+                // Finalize -------------------------------------------
+
+                // assert(pab->stat_rt_nb_failed() == 0);  // TODO(GD) Implement with proc_same_size(.)
+
+                // TODO Verify that the OLA instance was called (frame processing occurred)
+                // assert(ola_instance->nbcalls > 0);
+
+                assert(signal_in.size() == nb_samples_total);
+
+                if ((mode == mode_offline) || (mode == mode_streaming)) {
+                    // Anything to test?
+                } else if ((mode == mode_realtime)) {
+                    // Anything to test?
+                }
+
+                pab->reset();
+            }
+        }
+    }
+}
+
+void phaseshift::dev::audio_block_ol_builder_test_singlethread() {
+
+    struct test_params {
+        float fs;
+        int timestep;
+        int winlen;
+        int chunk_size;
+    };
+
+    const std::vector<test_params> test_combinations = {
+        // Standard combinations
+        {44100, 220, 882, 256},
+        {16000, 64, 512, 32},
+
+        // More edgy
+        {8000,  1, 3, 2},
+        {22050, 256, 384, 128},
+        {96000, 96, 4800, 1024},
+    };
+
+    auto pbuilder = new phaseshift::ol_builder();
+
+    for (const auto& [fs, timestep, winlen, chunk_size] : test_combinations) {
+
+        pbuilder->set_fs(fs);
+        pbuilder->set_timestep(timestep);
+        pbuilder->set_winlen(winlen);
+        // pbuilder->set_in_out_same_size_max(chunk_size);  // TODO(GD) Implement with proc_same_size(.)
+        pbuilder->set_first_frame_at_t0(true);
+
+        // DOUT << "fs=" << fs << ", winlen=" << winlen << ", timestep=" << timestep << ", chunk_size=" << chunk_size << std::endl;
+
+        auto pab = pbuilder->build();
+
+        phaseshift::dev::audio_block_ol_test(pab, chunk_size);
+
+        delete pab;
+    }
+
+    delete pbuilder;
+}
+
+void phaseshift::dev::audio_block_ol_builder_test() {
+    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ol_builder_test_singlethread);
 }

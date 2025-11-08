@@ -161,6 +161,17 @@ namespace phaseshift {
 
             return maxv;
         }
+
+        template<class datastruct>
+        void signals_check_nan_inf(const datastruct& data) {
+            #ifndef NDEBUG
+            for (int n=0; n<data.size(); ++n) {
+                assert(!std::isnan(data[n]));
+                assert(!std::isinf(data[n]));
+            }
+            #endif
+        }
+
     } // namespace dev
 
 }  // namespace phaseshift

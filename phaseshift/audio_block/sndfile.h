@@ -22,10 +22,8 @@ extern "C" {
 
 namespace phaseshift {
 
-    namespace ab {
-
         class sndfile : public audio_block {
-         protected:
+            protected:
             std::string m_file_path;
             SNDFILE* m_file_handle = nullptr;
             SF_INFO m_sf_info;
@@ -40,7 +38,7 @@ namespace phaseshift {
             void close();
             virtual ~sndfile();
 
-         public:
+            public:
             //! Return libsndfile version
             static std::string version();
         };
@@ -49,10 +47,10 @@ namespace phaseshift {
 
         class sndfile_reader : public sndfile {
 
-         protected:
+            protected:
             explicit sndfile_reader(int chunk_size_max = 1024);
 
-         public:
+            public:
             template<class ringbuffer>
             static int read(const std::string& file_path, ringbuffer* pout, int chunk_size_max = 1024, int channel_id = 0);
             static float get_fs(const std::string& file_path);
@@ -93,18 +91,18 @@ namespace phaseshift {
                 return read_frames_total;
             }
 
-            friend phaseshift::ab::sndfile_reader_builder;
+            friend phaseshift::sndfile_reader_builder;
         };
 
         class sndfile_reader_builder : public phaseshift::audio_block_builder {
-         protected:
+            protected:
             std::string m_file_path = "";
             int m_chunk_size_max = 1024;
             int m_channel_id = 0;
 
             sndfile_reader* build(sndfile_reader* pab);
 
-         public:
+            public:
             inline void set_file_path(const std::string& file_path) {
                 m_file_path = file_path;
             }
@@ -115,13 +113,13 @@ namespace phaseshift {
                 m_channel_id = channel_id;
             }
 
-            sndfile_reader* open() {return build(new phaseshift::ab::sndfile_reader(m_chunk_size_max));}
+            sndfile_reader* open() {return build(new phaseshift::sndfile_reader(m_chunk_size_max));}
             static sndfile_reader* open(const std::string& file_path, int chunk_size_max = 1024, int channel_id = 0);
         };
 
         template<class ringbuffer>
-        int phaseshift::ab::sndfile_reader::read(const std::string& file_path, ringbuffer* pout, int chunk_size, int channel_id) {
-            auto reader = phaseshift::ab::sndfile_reader_builder::open(file_path, chunk_size, channel_id);
+        int phaseshift::sndfile_reader::read(const std::string& file_path, ringbuffer* pout, int chunk_size, int channel_id) {
+            auto reader = phaseshift::sndfile_reader_builder::open(file_path, chunk_size, channel_id);
             if (reader == nullptr) return 0;
             while (reader->read(pout, chunk_size) > 0) {}
             delete reader;
@@ -133,10 +131,10 @@ namespace phaseshift {
         class sndfile_writer : public sndfile {
             phaseshift::globalcursor_t m_length = 0;
 
-         protected:
+            protected:
             explicit sndfile_writer(int chunk_size_max = 1024);
 
-         public:
+            public:
             template<class ringbuffer>
             static int write(const std::string& file_path, float fs, const ringbuffer& pin, int chunk_size = 1024, int bitrate=-1);
             template<class ringbuffer>
@@ -199,11 +197,11 @@ namespace phaseshift {
                 return written_frames_total;
             }
 
-            friend phaseshift::ab::sndfile_writer_builder;
+            friend phaseshift::sndfile_writer_builder;
         };
 
         class sndfile_writer_builder : public phaseshift::audio_block_builder {
-         protected:
+            protected:
             std::string m_file_path = "";
             float m_fs = -1.0f;
             int m_chunk_size_max = 1024;
@@ -212,7 +210,7 @@ namespace phaseshift {
 
             sndfile_writer* build(sndfile_writer* pab);
 
-         public:
+            public:
             void set_file_path(const std::string& file_path) {
                 m_file_path = file_path;
             }
@@ -229,12 +227,12 @@ namespace phaseshift {
                 m_bitrate = bitrate;
             }
 
-            sndfile_writer* open() {return build(new phaseshift::ab::sndfile_writer(m_chunk_size_max));}
+            sndfile_writer* open() {return build(new phaseshift::sndfile_writer(m_chunk_size_max));}
             static sndfile_writer* open(const std::string& file_path, float fs, int chunk_size_max = 1024, int nbchannels = 1, int bitrate=-1);
         };
 
         template<class ringbuffer>
-        int phaseshift::ab::sndfile_writer::write(const std::string& file_path, float fs, const ringbuffer& in, int chunk_size, int bitrate) {
+        int phaseshift::sndfile_writer::write(const std::string& file_path, float fs, const ringbuffer& in, int chunk_size, int bitrate) {
             assert(in.size() > 0 && "Audio channel is empty.");
             auto writer = sndfile_writer_builder::open(file_path, fs, chunk_size, 1, bitrate);
             if (writer == nullptr) return 0;
@@ -244,7 +242,7 @@ namespace phaseshift {
         }
 
         template<class ringbuffer>
-        int phaseshift::ab::sndfile_writer::write(const std::string& file_path, float fs, const std::vector<ringbuffer*>& ins, int chunk_size, int bitrate) {
+        int phaseshift::sndfile_writer::write(const std::string& file_path, float fs, const std::vector<ringbuffer*>& ins, int chunk_size, int bitrate) {
             assert(ins.size() > 0 && "No audio channels exist for writing.");
             auto writer = sndfile_writer_builder::open(file_path, fs, chunk_size, ins.size(), bitrate);
             if (writer == nullptr) return 0;
@@ -253,7 +251,6 @@ namespace phaseshift {
             return size;
         }
 
-    }  // namespace ab
 }  // namespace phaseshift
 
 #endif  // PHASESHIFT_SUPPORT_SNDFILE
