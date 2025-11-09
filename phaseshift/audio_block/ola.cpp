@@ -8,7 +8,8 @@
 #include <phaseshift/utils.h>
 #include <phaseshift/audio_block/ola.h>
 #include <phaseshift/sigproc/sigproc.h>
-// #include <phaseshift/audio_block/sndfile.h>
+
+// #include <phaseshift/audio_block/sndfile.h>  // For debug (see #if 0 below)
 
 void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
     (void)status;
