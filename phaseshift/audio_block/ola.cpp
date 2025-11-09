@@ -8,6 +8,7 @@
 #include <phaseshift/utils.h>
 #include <phaseshift/audio_block/ola.h>
 #include <phaseshift/sigproc/sigproc.h>
+// #include <phaseshift/audio_block/sndfile.h>
 
 void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
     (void)status;
@@ -365,6 +366,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 // Generate input signal ------------------------------
 
+                std::uniform_real_distribution<float> phase_dist(0.0f, 1.0f);
                 phaseshift::ringbuffer<float> signal_in;
                 signal_in.resize_allocation(fs * duration_s);
                 signal_in.clear();
@@ -381,17 +383,19 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     signal_in[0] = 1.0f;
                 } else if (synth == synth_sin) {
                     signal_in.push_back(0.0f, signal_in.capacity());
+                    float phase = 2.0f * M_PI * phase_dist(gen);
                     for (int n = 0; n < signal_in.size(); ++n) {
-                        signal_in[n] = 0.9f * std::sin(2.0f * M_PI * 440.0f * n / fs);
+                        signal_in[n] = 0.9f * std::sin(2.0f * M_PI * 440.0f * n / fs + phase);
                     }
                 } else if (synth == synth_harmonics) {
                     signal_in.push_back(0.0f, signal_in.capacity());
                     float f0 = 110.0f;
                     float nb_harmonics = int((0.5*fs-f0)/f0);
                     float amplitude = 0.9f/nb_harmonics;
-                    for (int n = 0; n < signal_in.size(); ++n) {
-                        for (int h = 0; h <= nb_harmonics; ++h) {
-                            signal_in[n] = amplitude * std::sin(2.0f * M_PI * h * f0 * n / fs);
+                    for (int h = 0; h <= nb_harmonics; ++h) {
+                        float phase = 2.0f * M_PI * phase_dist(gen);
+                        for (int n = 0; n < signal_in.size(); ++n) {
+                                signal_in[n] += amplitude * std::sin(2.0f * M_PI * h * f0 * n / fs + phase);
                         }
                     }
                 }
@@ -466,16 +470,19 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 phaseshift::dev::signals_check_nan_inf(signal_out);
 
                 if ((mode == mode_offline) || (mode == mode_streaming)) {
-                    assert(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold));  // TODO TODO TODO Why not perfect?
 
-                    // TODO(GD) Cleaning
-                    // phaseshift::sndfile_writer_built::write("flop.in.wav", fs(), file_in());
-                    // phaseshift::sndfile_writer_built::write("flop.out.wav", fs(), file_out());
-                    // phaseshift::ringbuffer<float> residual;
-                    // residual.allocate_lose_data(file_in().size());
-                    // residual = file_in();
-                    // residual -= file_out();
-                    // phaseshift::sndfile_writer_built::write("flop.res.wav", fs(), residual);
+                    #if 0
+                        phaseshift::sndfile_writer::write("flop.in.wav", fs, signal_in);
+                        phaseshift::sndfile_writer::write("flop.out.wav", fs, signal_out);
+                        phaseshift::ringbuffer<float> residual;
+                        residual.resize_allocation(signal_in.size());
+                        residual.clear();
+                        residual = signal_in;
+                        residual -= signal_out;
+                        phaseshift::sndfile_writer::write("flop.res.wav", fs, residual);
+                    #endif
+
+                    assert(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold));
 
                 } else if ((mode == mode_realtime)) {
 
