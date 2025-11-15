@@ -354,8 +354,8 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
     float fs = pab->fs();
 
-    enum {mode_offline, mode_streaming, mode_realtime};
-    enum {synth_noise, synth_silence, synth_click, synth_saturated, synth_sin, synth_harmonics};
+    enum {mode_offline=0, mode_streaming=1, mode_realtime=2};
+    enum {synth_noise=0, synth_silence=1, synth_click=2, synth_saturated=3, synth_sin=4, synth_harmonics=5};
 
     for (int mode = mode_offline; mode <= mode_realtime; ++mode) {
 
@@ -553,6 +553,6 @@ void phaseshift::dev::audio_block_ola_builder_test_singlethread() {
     delete pbuilder;
 }
 
-void phaseshift::dev::audio_block_ola_builder_test() {
-    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ola_builder_test_singlethread);
+void phaseshift::dev::audio_block_ola_builder_test(int nb_threads) {
+    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ola_builder_test_singlethread, nb_threads);
 }

@@ -358,6 +358,6 @@ void phaseshift::dev::audio_block_ol_builder_test_singlethread() {
     delete pbuilder;
 }
 
-void phaseshift::dev::audio_block_ol_builder_test() {
-    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ol_builder_test_singlethread);
+void phaseshift::dev::audio_block_ol_builder_test(int nb_threads) {
+    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ol_builder_test_singlethread, nb_threads);
 }

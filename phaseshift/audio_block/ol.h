@@ -113,7 +113,7 @@ namespace phaseshift {
 
         namespace dev {
             void audio_block_ol_builder_test_singlethread();
-            void audio_block_ol_builder_test();
+            void audio_block_ol_builder_test(int nb_threads=4);
         }
 
 }  // namespace phaseshift
