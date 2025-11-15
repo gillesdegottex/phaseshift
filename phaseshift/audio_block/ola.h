@@ -118,7 +118,8 @@ namespace phaseshift {
             //    - TODO Test speed?
             //    - (audio_block_ola_builder_test_singlethread() tests for singlethreaded building and processing)
             //    - (audio_block_builder_test() tests for multithreading)
-            void audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold=phaseshift::db2lin(-120.0f));
+            enum {option_none, option_test_latency=1};
+            void audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold=phaseshift::db2lin(-120.0f), int options=option_test_latency);
         }
 
         class ola_builder : public phaseshift::audio_block_builder {

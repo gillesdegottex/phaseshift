@@ -336,7 +336,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
 // Tests ----------------------------------------------------------------------
 
 // TODO(GD) Factor with audio_block_ol_test code?
-void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold) {
+void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold, int options) {
 
     float duration_s = 3.0f;
 
@@ -470,18 +470,18 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 phaseshift::dev::signals_check_nan_inf(signal_out);
 
-                if ((mode == mode_offline) || (mode == mode_streaming)) {
+                #if 0
+                    phaseshift::sndfile_writer::write("flop.in.wav", fs, signal_in);
+                    phaseshift::sndfile_writer::write("flop.out.wav", fs, signal_out);
+                    phaseshift::ringbuffer<float> residual;
+                    residual.resize_allocation(signal_in.size());
+                    residual.clear();
+                    residual = signal_in;
+                    residual -= signal_out;
+                    phaseshift::sndfile_writer::write("flop.res.wav", fs, residual);
+                #endif
 
-                    #if 0
-                        phaseshift::sndfile_writer::write("flop.in.wav", fs, signal_in);
-                        phaseshift::sndfile_writer::write("flop.out.wav", fs, signal_out);
-                        phaseshift::ringbuffer<float> residual;
-                        residual.resize_allocation(signal_in.size());
-                        residual.clear();
-                        residual = signal_in;
-                        residual -= signal_out;
-                        phaseshift::sndfile_writer::write("flop.res.wav", fs, residual);
-                    #endif
+                if ((mode == mode_offline) || (mode == mode_streaming)) {
 
                     assert(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold));
 
@@ -491,17 +491,19 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                     if (synth == synth_click) {
 
-                        // When the audio is a click, use it to measure the latency
+                        if (options & option_test_latency) {
+                            // When the audio is a click, use it to measure the latency
 
-                        int measured_latency = 0;
-                        for (; measured_latency < signal_out.size();) {
-                            if (signal_out[measured_latency] > 0.5f) {
-                                break;
+                            int measured_latency = 0;
+                            for (; measured_latency < signal_out.size();) {
+                                if (signal_out[measured_latency] > 0.33f) {
+                                    break;
+                                }
+                                measured_latency++;
                             }
-                            measured_latency++;
-                        }
 
-                        assert(measured_latency == pab->latency());
+                            assert(measured_latency == pab->latency());
+                        }
                     }
                 }
 
