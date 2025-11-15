@@ -108,6 +108,14 @@ namespace phaseshift {
     namespace dev {
         int check_compilation_options();
 
+        //! This kind of assert is intended to be used in test functions only, so that technical tests can be run in release mode (handy when using cross compiling, or shipping SDKs).
+        inline void test_require(bool condition, const char* message) {
+            if (!condition) {
+                std::cerr << "ERROR: " << message << std::endl;
+                exit(1);
+            }
+        }
+
         template<class datastruct_ref, class datastruct_test>
         bool signals_equal_strictly(const datastruct_ref& ref, const datastruct_test& test, double threshold = phaseshift::float32::eps()) {
             if (int(ref.size()) != int(test.size())) {

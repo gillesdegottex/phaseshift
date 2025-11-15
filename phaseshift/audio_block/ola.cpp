@@ -340,13 +340,9 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
     float duration_s = 3.0f;
 
-    #ifdef NDEBUG
-        std::cerr << "WARNING: phaseshift::dev::audio_block_ola_test: NDEBUG is defined. Asserts are not functioning and thus the test will not detect obvious errors, out-of-bound errors, etc." << std::endl;
-    #endif
-
     // Static tests
-    assert(pab->fs() > 0.0f);
-    assert(pab->latency() >= 0);
+    phaseshift::dev::test_require(pab->fs() > 0.0f, "audio_block_ola_test: fs() <= 0.0f");
+    phaseshift::dev::test_require(pab->latency() >= 0, "audio_block_ola_test: latency() < 0");
 
     // std::random_device rd;   // a seed source for the random number engine
     // std::mt19937 gen(rd());        // Repeatable (otherwise us rd())
@@ -451,7 +447,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                         chunk_out.clear();
                         pab->proc_same_size(chunk_in, &chunk_out);
                         // assert(chunk_out.size() == chunk_size);  // signal is not integer multiple of chunk size, so the last chunk will be smaller than chunk_size
-                        assert(chunk_out.size() == chunk_in.size());
+                        phaseshift::dev::test_require(chunk_out.size() == chunk_in.size(), "audio_block_ola_test: chunk_out.size() != chunk_in.size()");
             
                         signal_out.push_back(chunk_out);
                     }
@@ -460,13 +456,10 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 // Finalize -------------------------------------------
 
-                assert(pab->stat_rt_nb_failed() == 0);
+                phaseshift::dev::test_require(pab->stat_rt_nb_failed() == 0, "audio_block_ola_test: stat_rt_nb_failed() != 0");
 
-                // TODO Verify that the OLA instance was called (frame processing occurred)
-                // assert(ola_instance->nbcalls > 0);
-
-                assert(signal_out.size() == signal_in.size());
-                assert(signal_in.size() == nb_samples_total);
+                phaseshift::dev::test_require(signal_out.size() == signal_in.size(), "audio_block_ola_test: signal_out.size() != signal_in.size()");
+                phaseshift::dev::test_require(signal_in.size() == nb_samples_total, "audio_block_ola_test: signal_in.size() != nb_samples_total");
 
                 phaseshift::dev::signals_check_nan_inf(signal_out);
 
@@ -483,11 +476,11 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 if ((mode == mode_offline) || (mode == mode_streaming)) {
 
-                    assert(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold));
+                    phaseshift::dev::test_require(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold), "audio_block_ola_test: signals_equal_strictly() failed");
 
                 } else if ((mode == mode_realtime)) {
 
-                    assert(pab->stat_rt_out_size_min() < chunk_size);
+                    phaseshift::dev::test_require(pab->stat_rt_out_size_min() < chunk_size, "audio_block_ola_test: stat_rt_out_size_min() >= chunk_size");
 
                     if (synth == synth_click) {
 
@@ -502,7 +495,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                                 measured_latency++;
                             }
 
-                            assert(measured_latency == pab->latency());
+                            phaseshift::dev::test_require(measured_latency == pab->latency(), "audio_block_ola_test: measured_latency != latency()");
                         }
                     }
                 }

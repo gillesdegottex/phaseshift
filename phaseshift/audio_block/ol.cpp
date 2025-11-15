@@ -187,13 +187,9 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
 
     float duration_s = 3.0f;
 
-    #ifdef NDEBUG
-        std::cerr << "WARNING: phaseshift::dev::audio_block_ol_test: NDEBUG is defined. Asserts are not functioning and thus the test will not detect obvious errors, out-of-bound errors, etc." << std::endl;
-    #endif
-
     // Static tests
-    assert(pab->fs() > 0.0f);
-    assert(pab->latency() >= 0);
+    phaseshift::dev::test_require(pab->fs() > 0.0f, "audio_block_ol_test: fs() <= 0.0f");
+    phaseshift::dev::test_require(pab->latency() >= 0, "audio_block_ol_test: latency() < 0");
 
     // std::random_device rd;   // a seed source for the random number engine
     // std::mt19937 gen(rd());        // Repeatable (otherwise us rd())
@@ -288,7 +284,7 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
                 //         chunk_out.clear();
                 //         pab->proc_same_size(chunk_in, &chunk_out);
                 //         // assert(chunk_out.size() == chunk_size);  // signal is not integer multiple of chunk size, so the last chunk will be smaller than chunk_size
-                //         assert(chunk_out.size() == chunk_in.size());
+                //         phaseshift::dev::test_require(chunk_out.size() == chunk_in.size(), "audio_block_ol_test: chunk_out.size() != chunk_in.size()");
             
                 //         signal_out.push_back(chunk_out);
                 //     }
@@ -297,12 +293,9 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
 
                 // Finalize -------------------------------------------
 
-                // assert(pab->stat_rt_nb_failed() == 0);  // TODO(GD) Implement with proc_same_size(.)
+                // phaseshift::dev::test_require(pab->stat_rt_nb_failed() == 0, "audio_block_ol_test: stat_rt_nb_failed() != 0");  // TODO(GD) Implement with proc_same_size(.)
 
-                // TODO Verify that the OLA instance was called (frame processing occurred)
-                // assert(ola_instance->nbcalls > 0);
-
-                assert(signal_in.size() == nb_samples_total);
+                phaseshift::dev::test_require(signal_in.size() == nb_samples_total, "audio_block_ol_test: signal_in.size() != nb_samples_total");
 
                 if ((mode == mode_offline) || (mode == mode_streaming)) {
                     // Anything to test?
