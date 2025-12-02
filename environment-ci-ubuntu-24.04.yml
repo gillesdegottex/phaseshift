@@ -8,6 +8,7 @@ channels:
 dependencies:
   - gcc==10.3  # As close as possible as the cibuildwheel gcc (which is uncontrollable)
   - gxx==10.3  # As close as possible as the cibuildwheel gcc (which is uncontrollable)
+  - sysroot_linux-64==2.34
   - libsndfile==1.2.2
   - libboost==1.89.0
   - libboost-devel==1.89.0
