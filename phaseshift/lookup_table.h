@@ -348,16 +348,23 @@ namespace phaseshift {
         // Can handle (-inf,+inf) bcs values are wrapped inside this function.
         template<typename value_type>
         inline value_type evaluate_lookup_table(value_type x) const {
-            // Function is symmetrical
-            if (x < 0)
+            // Function is antisymmetrical
+            bool is_negative = x < 0;
+            if (is_negative)
                 x = -x;
 
             if (x > phaseshift::twopi)
                 x -= int(x*phaseshift::oneover_twopi)*phaseshift::twopi;
 
             // Bcs the values are wrapped anyway, it is not necessary to check the boundaries.
-            // return lookup_table::interp_linear_unchecked_boundaries(x*m_x2i);
-            return m_values[static_cast<int>(x*m_x2i+0.5f)];  // TODO(GD) Quite a big diff of speed and not much in differences
+            // value_type ret = lookup_table::interp_linear_unchecked_boundaries(x*m_x2i);
+            value_type ret = m_values[static_cast<int>(x*m_x2i+0.5f)];  // TODO(GD) Quite a big diff of speed and not much differences
+
+            if (is_negative) {
+                return -ret;
+            } else {
+                return ret;
+            }
         }
     };
     static lookup_table_sin g_lt_sin_float;
@@ -366,7 +373,7 @@ namespace phaseshift {
     static int g_lt_sin_size = g_lt_sin_float.size();
 
     inline float sin_ltf(float x) {
-        return g_lt_cos_float.evaluate_lookup_table(x);
+        return g_lt_sin_float.evaluate_lookup_table(x);
     }
 
 }
