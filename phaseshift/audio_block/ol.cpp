@@ -245,14 +245,14 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
 
                 phaseshift::globalcursor_t nb_samples_total = 0;
 
-                if (mode == mode_offline) {
+                if (mode == int(mode_offline)) {
 
                     pab->proc(signal_in);
                     pab->flush();
 
                     nb_samples_total += signal_in.size();
 
-                } else if (mode == mode_streaming) {
+                } else if (mode == int(mode_streaming)) {
 
                     phaseshift::ringbuffer<float> chunk_in;
                     chunk_in.resize_allocation(chunk_size);
@@ -268,7 +268,7 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
                     }
                     pab->flush();
 
-                // } else if (mode == mode_realtime) {  // TODO(GD) Implement
+                // } else if (mode == int(mode_realtime)) {  // TODO(GD) Implement
 
                 //     phaseshift::ringbuffer<float> chunk_in, chunk_out;
                 //     chunk_in.resize_allocation(chunk_size);
@@ -297,9 +297,9 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
 
                 phaseshift::dev::test_require(signal_in.size() == nb_samples_total, "audio_block_ol_test: signal_in.size() != nb_samples_total");
 
-                if ((mode == mode_offline) || (mode == mode_streaming)) {
+                if ((mode == int(mode_offline)) || (mode == int(mode_streaming))) {
                     // Anything to test?
-                } else if ((mode == mode_realtime)) {
+                } else if (mode == int(mode_realtime)) {
                     // Anything to test?
                 }
 
