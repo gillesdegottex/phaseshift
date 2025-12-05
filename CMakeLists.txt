@@ -170,7 +170,6 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/acbench)
 
   # FFTScarf ------------------------------------------------------------------
-  set(FFTSCARF_FFT_OOURA ON CACHE STRING "docstring")
   set(FFTSCARF_FFT_FFTREAL ON CACHE STRING "docstring")
   set(FFTSCARF_PLAN_PROTECTACCESS ON CACHE STRING "docstring")
   add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/ext/fftscarf ${CMAKE_CURRENT_BINARY_DIR}/fftscarf_build)
