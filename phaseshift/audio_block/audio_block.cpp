@@ -29,27 +29,32 @@ void audio_block_builder_test_multithread_thread(std::function<void(void)> fn, a
 
 void phaseshift::dev::audio_block_builder_test(std::function<void(void)> fn, int nb_threads) {
 
-    audio_block_builder_multithread_sync_data sync_data;
+    if (nb_threads == 1) {
+        fn();
 
-    std::vector<std::thread> threads;
-    for (int nt=0; nt < nb_threads; ++nt) {
-        threads.push_back(std::thread(audio_block_builder_test_multithread_thread, fn, &sync_data));
+    } else {
+        audio_block_builder_multithread_sync_data sync_data;
 
-        // Wait for the new thread to start before starting the next one
-        // to be sure that
-        while ( !(threads[nt].joinable()) ) {
+        std::vector<std::thread> threads;
+        for (int nt=0; nt < nb_threads; ++nt) {
+            threads.push_back(std::thread(audio_block_builder_test_multithread_thread, fn, &sync_data));
+
+            // Wait for the new thread to start before starting the next one
+            // to be sure that
+            while ( !(threads[nt].joinable()) ) {
+                std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(0.001*1e6)));
+            }
+        }
+
+        // Wait for all to get ready...
+        while ( sync_data.nb_ready < int(threads.size()) ) {
             std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(0.001*1e6)));
         }
-    }
+        sync_data.go = true;
 
-    // Wait for all to get ready...
-    while ( sync_data.nb_ready < int(threads.size()) ) {
-        std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(0.001*1e6)));
-    }
-    sync_data.go = true;
-
-    // Wait for all to finish
-    for (auto&& thread : threads) {
-        thread.join();
+        // Wait for all to finish
+        for (auto&& thread : threads) {
+            thread.join();
+        }
     }
 }
