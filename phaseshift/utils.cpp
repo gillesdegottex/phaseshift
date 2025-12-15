@@ -9,6 +9,53 @@
 
 #include <iostream>
 
+int phaseshift::music_note_to_semitone(const std::string& note) {
+    assert(note.size() > 0);
+    assert(note.size() <= 2);
+
+    char note_key = note[0];
+    char note_accidental = '\0';
+    if (note.size() > 1) {
+        note_accidental = note[1];
+    }
+
+    if (std::islower(note_key)) {
+        note_key = std::toupper(note_key);
+    }
+    if (note.size() > 1 && std::isupper(note_accidental)) {
+        note_accidental = std::tolower(note_accidental);
+    }
+
+    if (note_key == 'C' && note_accidental == '\0') {
+        return 0;
+    } else if ((note_key == 'C' && note_accidental == '#') || (note_key == 'D' && note_accidental == 'b')) {
+        return 1;
+    } else if (note_key == 'D' && note_accidental == '\0') {
+        return 2;
+    } else if ((note_key == 'D' && note_accidental == '#') || (note_key == 'E' && note_accidental == 'b')) {
+        return 3;
+    } else if (note_key == 'E' && note_accidental == '\0') {
+        return 4;
+    } else if (note_key == 'F' && note_accidental == '\0') {
+        return 5;
+    } else if ((note_key == 'F' && note_accidental == '#') || (note_key == 'G' && note_accidental == 'b')) {
+        return 6;
+    } else if (note_key == 'G' && note_accidental == '\0') {
+        return 7;
+    } else if ((note_key == 'G' && note_accidental == '#') || (note_key == 'A' && note_accidental == 'b')) {
+        return 8;
+    } else if (note_key == 'A' && note_accidental == '\0') {
+        return 9;
+    } else if ((note_key == 'A' && note_accidental == '#') || (note_key == 'B' && note_accidental == 'b')) {
+        return 10;
+    } else if (note_key == 'B' && note_accidental == '\0') {
+        return 11;
+    } else {
+        assert(false && "phaseshift::music_note_to_semitone: Invalid note");
+    }
+
+}
+
 int phaseshift::dev::check_compilation_options() {
     int ret = 0;
 

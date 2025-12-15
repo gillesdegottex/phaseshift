@@ -69,13 +69,16 @@ namespace phaseshift {
     inline float st2coef(float st) {
         return std::pow(2.0f, st / 12.0f);
     }
-    inline float hz2st(float hz) {
-        return coef2st(hz / 440.0f);
+    inline float hz2st(float hz, float A4 = 440.0f) {
+        return coef2st(hz / A4);
     }
-    inline float st2hz(float st) {
-        return 440.0f * st2coef(st);
+    inline float st2hz(float st, float A4 = 440.0f) {
+        return A4 * st2coef(st);
     }
 
+    //! Convert a music note to a semitone number relative to 'C'
+    //    Recognizes C, C#, Db, D, D#, Eb, E, F, F#, Gb, G, G#, Ab, A, A#, Bb, B
+    int music_note_to_semitone(const std::string& note);
 
     inline int nextpow2(int winlen) {  // TODO(GD) Move to fftscarf
         assert(winlen > 0);
