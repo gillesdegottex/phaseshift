@@ -50,10 +50,11 @@ int phaseshift::music_note_to_semitone(const std::string& note) {
         return 10;
     } else if (note_key == 'B' && note_accidental == '\0') {
         return 11;
-    } else {
-        assert(false && "phaseshift::music_note_to_semitone: Invalid note");
     }
 
+    assert(false && "phaseshift::music_note_to_semitone: Invalid note");
+
+    return -1;  // -1 could be a semitone number, but it can't be returned by any other cases, so use it as an invalid value here.
 }
 
 int phaseshift::dev::check_compilation_options() {
