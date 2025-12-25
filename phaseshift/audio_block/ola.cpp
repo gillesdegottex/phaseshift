@@ -404,14 +404,14 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 phaseshift::globalcursor_t nb_samples_total = 0;
 
-                if (mode == mode_offline) {
+                if (mode == int(mode_offline)) {
 
                     signal_out.clear();
                     pab->proc(signal_in, &signal_out);
                     pab->flush(&signal_out);
                     nb_samples_total = signal_out.size();
 
-                } else if (mode == mode_streaming) {
+                } else if (mode == int(mode_streaming)) {
 
                     phaseshift::ringbuffer<float> chunk_in, chunk_out;
                     chunk_in.resize_allocation(chunk_size);
@@ -431,7 +431,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     }
                     pab->flush(&signal_out);
 
-                } else if (mode == mode_realtime) {
+                } else if (mode == int(mode_realtime)) {
 
                     phaseshift::ringbuffer<float> chunk_in, chunk_out;
                     chunk_in.resize_allocation(chunk_size);
@@ -474,11 +474,11 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     phaseshift::sndfile_writer::write("flop.res.wav", fs, residual);
                 #endif
 
-                if ((mode == mode_offline) || (mode == mode_streaming)) {
+                if ((mode == int(mode_offline)) || (mode == int(mode_streaming))) {
 
                     phaseshift::dev::test_require(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold), "audio_block_ola_test: signals_equal_strictly() failed");
 
-                } else if ((mode == mode_realtime)) {
+                } else if ((mode == int(mode_realtime))) {
 
                     phaseshift::dev::test_require(pab->stat_rt_out_size_min() < chunk_size, "audio_block_ola_test: stat_rt_out_size_min() >= chunk_size");
 
