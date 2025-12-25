@@ -478,7 +478,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                     phaseshift::dev::test_require(phaseshift::dev::signals_equal_strictly(signal_in, signal_out, resynthesis_threshold), "audio_block_ola_test: signals_equal_strictly() failed");
 
-                } else if ((mode == int(mode_realtime))) {
+                } else if (mode == int(mode_realtime)) {
 
                     phaseshift::dev::test_require(pab->stat_rt_out_size_min() < chunk_size, "audio_block_ola_test: stat_rt_out_size_min() >= chunk_size");
 
