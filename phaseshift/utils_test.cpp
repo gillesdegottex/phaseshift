@@ -40,3 +40,8 @@ TEST_CASE("utils", "[sigproc]") {
     REQUIRE(phaseshift::nextpow2(512) == 512);
     REQUIRE(phaseshift::nextpow2(513) == 1024);
 }
+
+TEST_CASE("utils", "[logger]") {
+    DLINE
+    DOUT << "Logging: " << 3.1415 << std::endl;
+}

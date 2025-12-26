@@ -25,13 +25,58 @@
 
 #include "./filesystem.h"
 
-#define DFILE__ std::filesystem::path(__FILE__).filename().string()
-// #define DFILE__ __FILE__
+#define DFILE__ std::filesystem::path(__FILE__).filename().string()  // Only filename
+// #define DFILE__ __FILE__  // For full path
 
-// #define DOUT std::cerr << DFILE__ << ":" << __LINE__ << ": "
-// #define DLINE std::cerr << DFILE__ << ":" << __LINE__ << std::endl;
-#define DOUT std::cerr << DFILE__ << ":" << std::to_string(__LINE__) << ": "
-#define DLINE std::cerr << DFILE__ << ":" << std::to_string(__LINE__) << std::endl;
+#ifdef __ANDROID__
+    #include <android/log.h>
+    #define DLINETAG(CHANNEL_NAME) { __android_log_print(ANDROID_LOG_INFO, CHANNEL_NAME, "%s:%d", std::string(__FILE__).substr(std::string(__FILE__).find_last_of("/\\")+1).c_str(), __LINE__); }
+
+    namespace phaseshift {
+
+        class debug_stream_android_t {
+            public:
+            std::string m_filename;
+            std::string m_channel_name;
+            int m_line;
+            std::stringstream m_stringstream;
+            debug_stream_android_t& set_filename(const std::string& filename) { m_filename = filename; return *this; }
+            debug_stream_android_t& set_channel_name(const std::string& channel_name) { m_channel_name = channel_name; return *this; }
+            debug_stream_android_t& set_line(int line) { m_line = line; return *this; }
+        };
+
+        template<typename value_type>
+        debug_stream_android_t& operator<<(debug_stream_android_t& debug_stream, const value_type& v) {
+            debug_stream.m_stringstream << v;
+            return debug_stream;
+        }
+
+        inline debug_stream_android_t& operator<<(debug_stream_android_t& debug_stream, std::ostream& (*fn)(std::ostream&)){
+            if (
+                fn == static_cast<std::ostream& (*)(std::ostream&)>(std::endl) ||
+                fn == static_cast<std::ostream& (*)(std::ostream&)>(std::flush)
+            ) {
+                __android_log_print(ANDROID_LOG_INFO, debug_stream.m_channel_name.c_str(), "%s:%d: %s", debug_stream.m_filename.c_str(), debug_stream.m_line, debug_stream.m_stringstream.str().c_str());
+                // std::cerr << debug_stream.m_filename << ":" << debug_stream.m_line << ": " << debug_stream.m_stringstream.str() << std::endl;
+
+                debug_stream.m_stringstream.str(std::string());
+            }
+
+            return debug_stream;
+        }
+
+        extern debug_stream_android_t g_debug_stream_android;  // here static will create a copy for each translation unit.
+    }
+
+    #define DOUTTAG(CHANNEL_NAME) phaseshift::g_debug_stream_android.set_filename(DFILE__).set_line(__LINE__).set_channel_name(CHANNEL_NAME)
+
+#else
+    #define DLINETAG(CHANNEL_NAME) std::cerr << DFILE__ << ":" << __LINE__ << std::endl;
+    #define DOUTTAG(CHANNEL_NAME) std::cerr << DFILE__ << ":" << __LINE__ << ": "
+#endif
+
+#define DLINE DLINETAG("debug")
+#define DOUT DOUTTAG("debug")
 
 // A macro to disable lines related to profiling only.
 #ifdef PHASESHIFT_DEV_PROFILING

@@ -7,7 +7,9 @@
 
 #include <phaseshift/utils.h>
 
-#include <iostream>
+#ifdef __ANDROID__
+    phaseshift::debug_stream_android_t phaseshift::g_debug_stream_android;
+#endif
 
 int phaseshift::music_note_to_semitone(const std::string& note) {
     assert(note.size() > 0);
