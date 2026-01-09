@@ -21,29 +21,31 @@ namespace phaseshift {
         // OverLap Add (OLA): Segment the input signal into frames and reconstruct a new signal based on the processed frames.
         class ola : public phaseshift::audio_block {
 
-            public:
+          public:
             struct proc_status {
                 bool first_frame;
                 bool last_frame;
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
                 bool flushing;
+                int nb_samples_kept;
                 inline std::string to_string() const {
                     return "first_frame=" + std::to_string(first_frame) +
                             " last_frame=" + std::to_string(last_frame) +
                             " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
                             " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
-                            " flushing=" + std::to_string(flushing);
+                            " flushing=" + std::to_string(flushing) +
+                            " nb_samples_kept=" + std::to_string(nb_samples_kept);
                 }
             };
 
-            protected:
+          protected:
             phaseshift::vector<float> m_win;
 
             // This function should be overwritten by the custom class that inherit phaseshift::ola
             virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx);
 
-            private:
+          private:
             proc_status m_status;
 
             phaseshift::ringbuffer<float> m_frame_rolling;
@@ -60,6 +62,7 @@ namespace phaseshift {
             int m_rt_out_size_max = -1;
 
             phaseshift::globalcursor_t m_win_center_idx = 0;
+            phaseshift::globalcursor_t m_input_len = 0;
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
 
@@ -72,12 +75,12 @@ namespace phaseshift {
             int m_stat_rt_nb_failed = 0;
             int m_stat_rt_out_size_min = phaseshift::int32::max();
 
-            protected:
+          protected:
             int m_timestep = -1;
 
             ola();
 
-            public:
+          public:
 
             virtual ~ola();
 
@@ -101,6 +104,9 @@ namespace phaseshift {
 
             //! [samples]
             virtual int latency() const {return winlen();}
+
+            //! Number of samples that have processed so far  [samples].
+            inline phaseshift::globalcursor_t input_len() const {return m_input_len;}
 
             virtual void reset();
 
