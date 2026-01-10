@@ -28,7 +28,9 @@ namespace phaseshift {
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
                 bool flushing;
-                int nb_samples_kept;
+                int nb_samples_kept;  // The number of samples that will actually be kept in the output signal.
+                                      // During flush, some output signal might be popped. Thus, some of this signal might be eventually removed.
+                                      // TODO(GD) Find a way to avoid this back and forth of adding samples during flush() and then removing them.
                 inline std::string to_string() const {
                     return "first_frame=" + std::to_string(first_frame) +
                             " last_frame=" + std::to_string(last_frame) +
@@ -42,7 +44,16 @@ namespace phaseshift {
           protected:
             phaseshift::vector<float> m_win;
 
-            // This function should be overwritten by the custom class that inherit phaseshift::ola
+            //! This function can be overwritten to run pre-analysis on the frame before actual processing, i.e. before the output and internal buffers are updated.
+            virtual void analyze_input_frame(const phaseshift::vector<float>& frame_in, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
+            }
+            //! Can be overwritten to compute the expected output length.
+            //  Ex. necessary when doing time scaling.
+            virtual int get_expected_output_length() const {
+                return m_input_len;  // By default, processing is time sync.
+            }
+
+            //! This function should be overwritten by the custom class that inherit phaseshift::ola
             virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx);
 
           private:
@@ -58,11 +69,12 @@ namespace phaseshift {
             bool m_first_frame_at_t0 = true;
             int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
-            int m_extra_samples_to_flush = 0;
+            int m_extra_leading_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
 
             phaseshift::globalcursor_t m_win_center_idx = 0;
             phaseshift::globalcursor_t m_input_len = 0;
+            phaseshift::globalcursor_t m_output_len = 0;
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
 
@@ -106,7 +118,8 @@ namespace phaseshift {
             virtual int latency() const {return winlen();}
 
             //! Number of samples that have processed so far  [samples].
-            inline phaseshift::globalcursor_t input_len() const {return m_input_len;}
+            inline phaseshift::globalcursor_t input_length() const {return m_input_len;}
+            inline phaseshift::globalcursor_t output_length() const {return m_output_len;}
 
             virtual void reset();
 
@@ -134,7 +147,7 @@ namespace phaseshift {
             int m_timestep = -1;
             bool m_first_frame_at_t0 = true;
             int m_extra_samples_to_skip = 0;
-            int m_extra_samples_to_flush = 0;
+            int m_extra_leading_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
 
             public:
@@ -152,8 +165,8 @@ namespace phaseshift {
             inline void set_extra_samples_to_skip(int nbsamples) {
                 m_extra_samples_to_skip = nbsamples;
             }
-            inline void set_extra_samples_to_flush(int nbsamples) {
-                m_extra_samples_to_flush = nbsamples;
+            inline void set_extra_leading_samples_to_flush(int nbsamples) {
+                m_extra_leading_samples_to_flush = nbsamples;
             }
             inline void set_in_out_same_size_max(int size_max) {
                 m_rt_out_size_max = size_max;

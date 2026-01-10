@@ -33,9 +33,8 @@ phaseshift::ola::~ola() {
 
 void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush) {
 
-    m_frame_input = m_frame_rolling;
-    assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
-
+    // Keep track of the number of samples that will be kept in the output signal.
+    // (the rest might be leading or trailing zeros)
     m_status.nb_samples_kept = std::max<int>(0, nb_samples_to_flush-m_first_frame_at_t0_samples_to_skip);
 
     assert(m_win_center_idx >= 0 && "phaseshift::ola::proc: The window center index is negative.");
@@ -86,6 +85,7 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     assert(pout->size()+nb_samples_to_flush_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
 
     pout->push_back(m_out_sum, 0, nb_samples_to_flush_remains);
+    m_output_len += nb_samples_to_flush_remains;
     m_out_sum.pop_front(nb_samples_to_flush_remains);
     m_out_sum_win.pop_front(nb_samples_to_flush_remains);
 
@@ -111,6 +111,9 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
         in_n += nb_samples_for_winlen;
 
         if (m_frame_rolling.size() == winlen()) {
+            m_frame_input = m_frame_rolling;
+            assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
+
             m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
             m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
 
@@ -122,7 +125,9 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
                     assert(false);
                 }
             #endif
-
+        
+            m_status.nb_samples_kept = std::max<int>(0, m_timestep-m_first_frame_at_t0_samples_to_skip);
+            analyze_input_frame(m_frame_input, m_status, m_win_center_idx);
             proc_win(pout, m_timestep);
         }
     }
@@ -136,13 +141,15 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
         return;
 
     // Total number of samples of the previous inputs, which remains to be processed
-    int nb_samples_to_flush_total = m_frame_rolling.size();
-    nb_samples_to_flush_total += m_extra_samples_to_flush;
+    int nb_input_samples_to_flush_total = m_frame_rolling.size();
+    // We can add those straight away bcs they must be known at the start. (conversely to the trailing zeros, which might be known along the way)
+    nb_input_samples_to_flush_total += m_extra_leading_samples_to_flush;
+    int nb_samples_to_flush_total = nb_input_samples_to_flush_total;
 
     // Avoid blowing up the output buffer in case of flushing
     if (nb_samples_to_flush_total > pout->size_max() - pout->size()) {
         nb_samples_to_flush_total = pout->size_max() - pout->size();
-        assert(false && "phaseshift::ola::flush: There is not enough space in the output buffer.");
+        assert(false && "phaseshift::ola::flush: There is not enough space in the output buffer. The number of samples to flush has been reduced to fit the output buffer and the remaining samples will be lost.");
     }
 
     // Bcs proc(.) will be called before, it will always be smaller than m_winlen
@@ -151,23 +158,60 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
     // We know here that there are not enough samples to fill a full window
     // The chosen strategy in the following is to process extra uncomplete windows, as long as the number of samples to flush is smaller than the timestep.
     // This implies also to flush timestep samples, except for the last iteration, where is less or equal than timestep.
-    int nb_samples_to_flush = m_timestep;
+    // TODO(GD) It should go one timestep beyond the last sample of the input signal. That would ensure always good window normalisation.
+    // TODO(GD) Review: This is messy
+    m_status.flushing = true;
+    bool extra_trailing_samples_added = false;
     do {
         // Add trailing zeros to fill a full window
         m_frame_rolling.push_back(0.0f, winlen() - m_frame_rolling.size());
-
-        // Flush timestep samples, except for the last iteration
-        if (nb_samples_to_flush_total <= m_timestep) {
-            nb_samples_to_flush = nb_samples_to_flush_total;
-            m_status.last_frame = true;
-        }
+        m_frame_input = m_frame_rolling;
+        assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
 
         m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-        m_status.fully_covered_by_window = false;
-        m_status.flushing = true;
-        proc_win(pout, nb_samples_to_flush);
+        m_status.fully_covered_by_window = false;  // TODO(GD) Not sure about this
 
-        nb_samples_to_flush_total -= nb_samples_to_flush;
+        // Finalizing input
+
+        // Flush timestep samples, except for the last iteration
+        int nb_input_samples_to_flush = m_timestep;
+        m_status.last_frame = false;
+        if (nb_input_samples_to_flush_total <= m_timestep) {
+            nb_input_samples_to_flush = nb_input_samples_to_flush_total;
+            m_status.last_frame = true;
+        }
+        m_status.nb_samples_kept = std::max<int>(0, nb_input_samples_to_flush-m_first_frame_at_t0_samples_to_skip);
+        analyze_input_frame(m_frame_input, m_status, m_win_center_idx);
+
+        nb_input_samples_to_flush_total = std::max<int>(0, nb_input_samples_to_flush_total - nb_input_samples_to_flush);
+
+        if (!extra_trailing_samples_added && nb_input_samples_to_flush_total==0) {
+            int diff_length = get_expected_output_length() - input_length();
+            // DOUT << "input_len=" << input_length() << ", output_len=" << output_length() << "/" << get_expected_output_length() << ", diff_length=" << diff_length << std::endl;
+            if (diff_length > 0) {
+                nb_samples_to_flush_total += diff_length;
+            } else if (diff_length < 0) {
+                nb_samples_to_flush_total += diff_length;
+            }
+            extra_trailing_samples_added = true;
+        }
+
+        if (nb_samples_to_flush_total > 0) {
+            // Flushing output
+
+            // Flush timestep samples, except for the last iteration
+            int nb_samples_to_flush = m_timestep;
+            m_status.last_frame = false;
+            if (nb_samples_to_flush_total <= m_timestep) {
+                nb_samples_to_flush = nb_samples_to_flush_total;
+                m_status.last_frame = true;
+            }
+            proc_win(pout, nb_samples_to_flush);
+
+            nb_samples_to_flush_total -= nb_samples_to_flush;
+        } else if (nb_samples_to_flush_total < 0) {
+            pout->pop_back(-nb_samples_to_flush_total);
+        }
 
     } while (nb_samples_to_flush_total > 0);
 
@@ -276,6 +320,7 @@ void phaseshift::ola::reset() {
     m_stat_rt_out_size_min = phaseshift::int32::max();
 
     m_input_len = 0;
+    m_output_len = 0;
 }
 
 
@@ -324,7 +369,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     }
     pab->m_extra_samples_to_skip = m_extra_samples_to_skip;
     pab->m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
-    pab->m_extra_samples_to_flush = m_extra_samples_to_flush;
+    pab->m_extra_leading_samples_to_flush = m_extra_leading_samples_to_flush;
 
     pab->m_out_sum.push_back(0.0f, m_winlen);
     pab->m_out_sum_win.push_back(0.0f, m_winlen);
