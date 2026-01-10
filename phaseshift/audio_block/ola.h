@@ -28,16 +28,15 @@ namespace phaseshift {
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
                 bool flushing;
-                int nb_samples_kept;  // The number of samples that will actually be kept in the output signal.
+                int nb_samples_valid; // The number of samples that come from the actual input signal.
                                       // During flush, some output signal might be popped. Thus, some of this signal might be eventually removed.
-                                      // TODO(GD) Find a way to avoid this back and forth of adding samples during flush() and then removing them.
                 inline std::string to_string() const {
                     return "first_frame=" + std::to_string(first_frame) +
                             " last_frame=" + std::to_string(last_frame) +
                             " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
                             " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
                             " flushing=" + std::to_string(flushing) +
-                            " nb_samples_kept=" + std::to_string(nb_samples_kept);
+                            " nb_samples_valid=" + std::to_string(nb_samples_valid);
                 }
             };
 
@@ -49,7 +48,7 @@ namespace phaseshift {
             }
             //! Can be overwritten to compute the expected output length.
             //  Ex. necessary when doing time scaling.
-            virtual int get_expected_output_length() const {
+            virtual phaseshift::globalcursor_t get_expected_output_length() const {
                 return m_input_len;  // By default, processing is time sync.
             }
 
