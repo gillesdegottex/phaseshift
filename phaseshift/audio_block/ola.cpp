@@ -138,8 +138,8 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
 void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
 
 
-    // if (m_frame_rolling.size() == 0)
-    //     return;
+    if (m_frame_rolling.size() == 0)
+        return;
 
     // Total number of samples of the previous inputs, which remains to be processed.
     // We can add m_extra_leading_samples_to_flush straight away bcs they must be known at the start (conversely to trailing zeros, which might be known along the way).
@@ -199,9 +199,10 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
 
     // TODO(GD) This doesn't work yet.
     // TODO(GD) Find a way to avoid this back and forth of adding samples during flush() and then removing some at the end. The problem is that we need to process all of the remaining input samples to get the exact length_correction before sometimes realizing we went too far.
-    if (output_remaining < 0) {
-        pout->pop_back(-output_remaining);
-    }
+    // DOUT << "output_remaining=" << output_remaining << std::endl;
+    // if (output_remaining < 0) {
+    //     pout->pop_back(-output_remaining);
+    // }
 
     m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer. This also ensures calling flush(.) multiple times will not add anything to the output buffer.
     // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
