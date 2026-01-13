@@ -60,7 +60,9 @@ namespace phaseshift {
             int m_extra_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
 
+            phaseshift::globalcursor_t m_input_length = 0;
             phaseshift::globalcursor_t m_input_win_center_idx = 0;
+            phaseshift::globalcursor_t m_output_length = 0;
             phaseshift::globalcursor_t m_output_win_center_idx = 0;
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);

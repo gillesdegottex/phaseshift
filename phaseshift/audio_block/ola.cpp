@@ -88,6 +88,7 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     assert(pout->size()+nb_samples_to_flush_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
 
     pout->push_back(m_out_sum, 0, nb_samples_to_flush_remains);
+    m_output_length += nb_samples_to_flush_remains;
     m_out_sum.pop_front(nb_samples_to_flush_remains);
     m_out_sum_win.pop_front(nb_samples_to_flush_remains);
 
@@ -100,6 +101,8 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
 
 void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
     proc_time_start();
+
+    m_input_length += in.size();
 
     int in_n = 0;
     while (in_n < in.size()) {
@@ -270,7 +273,9 @@ void phaseshift::ola::reset() {
     m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
     m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
     m_status.flushing = false;
+    m_input_length = 0;
     m_input_win_center_idx = 0;
+    m_output_length = 0;
     m_output_win_center_idx = 0;
 
     assert(m_rt_out.size_max() == 2*std::max<int>(winlen()+m_timestep, m_rt_out_size_max));
@@ -333,7 +338,9 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_status.skipping_samples_at_start = pab->m_first_frame_at_t0_samples_to_skip > 0;
     pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
     pab->m_status.flushing = false;
+    pab->m_input_length = 0;
     pab->m_input_win_center_idx = 0;
+    pab->m_output_length = 0;
     pab->m_output_win_center_idx = 0;
 
     // Only usefull when using proc_same_size(.)
