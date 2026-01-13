@@ -21,13 +21,15 @@ namespace phaseshift {
         // OverLap Add (OLA): Segment the input signal into frames and reconstruct a new signal based on the processed frames.
         class ola : public phaseshift::audio_block {
 
-            public:
+          public:
             struct proc_status {
                 bool first_frame;
                 bool last_frame;
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
                 bool flushing;
+                phaseshift::globalcursor_t input_win_center_idx = 0;
+                phaseshift::globalcursor_t output_win_center_idx = 0;
                 inline std::string to_string() const {
                     return "first_frame=" + std::to_string(first_frame) +
                             " last_frame=" + std::to_string(last_frame) +
@@ -37,11 +39,11 @@ namespace phaseshift {
                 }
             };
 
-            protected:
+          protected:
             phaseshift::vector<float> m_win;
 
             // This function should be overwritten by the custom class that inherit phaseshift::ola
-            virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx);
+            virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status);
 
             private:
             proc_status m_status;
@@ -53,13 +55,13 @@ namespace phaseshift {
             phaseshift::ringbuffer<float> m_out_sum;
             phaseshift::ringbuffer<float> m_out_sum_win;
 
-            bool m_first_frame_at_t0 = true;
             int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
 
-            phaseshift::globalcursor_t m_win_center_idx = 0;
+            phaseshift::globalcursor_t m_input_win_center_idx = 0;
+            phaseshift::globalcursor_t m_output_win_center_idx = 0;
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
 
@@ -126,7 +128,6 @@ namespace phaseshift {
             protected:
             int m_winlen = -1;
             int m_timestep = -1;
-            bool m_first_frame_at_t0 = true;
             int m_extra_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
@@ -139,9 +140,6 @@ namespace phaseshift {
             inline void set_timestep(int timestep) {
                 assert(timestep > 0);
                 m_timestep = timestep;
-            }
-            inline void set_first_frame_at_t0(bool first_frame_at_t0) {
-                m_first_frame_at_t0 = first_frame_at_t0;
             }
             inline void set_extra_samples_to_skip(int nbsamples) {
                 m_extra_samples_to_skip = nbsamples;

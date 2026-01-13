@@ -11,9 +11,8 @@
 
 // #include <phaseshift/audio_block/sndfile.h>  // For debug (see #if 0 below)
 
-void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status, phaseshift::globalcursor_t win_center_idx) {
+void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status) {
     (void)status;
-    (void)win_center_idx;
     phaseshift::vector<float>& out = *pout;
     PHASESHIFT_PROF(dbg_proc_frame_time.start();)
 
@@ -36,8 +35,11 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     m_frame_input = m_frame_rolling;
     assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
 
-    assert(m_win_center_idx >= 0 && "phaseshift::ola::proc: The window center index is negative.");
-    proc_frame(m_frame_input, &m_frame_output, m_status, m_win_center_idx);
+    assert(m_input_win_center_idx >= 0 && "phaseshift::ola::proc: The input window center index is negative.");
+    assert(m_output_win_center_idx >= 0 && "phaseshift::ola::proc: The output window center index is negative.");
+    m_status.input_win_center_idx = m_input_win_center_idx;
+    m_status.output_win_center_idx = m_output_win_center_idx;
+    proc_frame(m_frame_input, &m_frame_output, m_status);
     assert(m_frame_output.size() > 0 && "phaseshift::ola::proc: The output frame is empty.");
     m_status.first_frame = false;
 
@@ -67,7 +69,7 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     // Flush the samples that can be flushed
     // TODO(GD) This doesnt respect perfect reconstruction.
     for (int n=0; n<nb_samples_to_flush_remains; ++n) {
-        if (m_out_sum_win[n]<2*phaseshift::float32::eps()) {
+        if (m_out_sum_win[n] < 2*phaseshift::float32::eps()) {
             m_out_sum_win[n] = 1.0f;
         }
     }
@@ -88,11 +90,10 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     m_out_sum_win.pop_front(nb_samples_to_flush_remains);
 
     // Prepare for next one
+    m_output_win_center_idx += std::max(0, nb_samples_to_flush_remains);  // = those of pout->push_back(.)
     m_out_sum.push_back(0.0f, nb_samples_to_flush);
     m_out_sum_win.push_back(0.0f, nb_samples_to_flush);
     m_frame_rolling.pop_front(m_timestep);
-
-    m_win_center_idx += m_timestep;
 }
 
 void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
@@ -121,6 +122,8 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
             #endif
 
             proc_win(pout, m_timestep);
+
+            m_input_win_center_idx += m_timestep;  // Rdy for next window
         }
     }
 
@@ -129,12 +132,14 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
 
 void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
 
-    if (m_frame_rolling.size() == 0)
+    if (m_status.flushing)  // Prevent running flush multiple times. Once must be enough.
         return;
+    m_status.flushing = true;
 
-    // Total number of samples of the previous inputs, which remains to be processed
-    int nb_samples_to_flush_total = m_frame_rolling.size();
-    nb_samples_to_flush_total += m_extra_samples_to_flush;
+
+    // Number of user input samples that remains to be processed
+    int nb_input_samples_to_flush = m_frame_rolling.size() - (winlen()-1)/2;  // (winlen()-1)/2 was added at the begining to put first window center at t0=0
+    int nb_samples_to_flush_total = m_frame_rolling.size() + m_extra_samples_to_flush;
 
     // Avoid blowing up the output buffer in case of flushing
     if (nb_samples_to_flush_total > pout->size_max() - pout->size()) {
@@ -162,14 +167,18 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
 
         m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
         m_status.fully_covered_by_window = false;
-        m_status.flushing = true;
         proc_win(pout, nb_samples_to_flush);
+
+        nb_input_samples_to_flush -= nb_samples_to_flush;
+        if (nb_input_samples_to_flush > 0) {
+            m_input_win_center_idx += m_timestep;  // ... make it rdy for next window
+        }
 
         nb_samples_to_flush_total -= nb_samples_to_flush;
 
     } while (nb_samples_to_flush_total > 0);
 
-    m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer. This also ensures calling flush(.) multiple times will not add anything to the output buffer.
+    m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
     // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
 }
 
@@ -247,12 +256,8 @@ void phaseshift::ola::reset() {
     assert(m_win.size_max() == winlen());
     // phaseshift::win_hamming(&(m_win), winlen);  // Should not be changed, no need to re-build it.
 
-    if (m_first_frame_at_t0) {
-        m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
-        m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
-    } else {
-        m_first_frame_at_t0_samples_to_skip = 0;
-    }
+    m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
+    m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
     m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
 
     m_out_sum.push_back(0.0f, winlen());
@@ -263,7 +268,8 @@ void phaseshift::ola::reset() {
     m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
     m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
     m_status.flushing = false;
-    m_win_center_idx = 0;
+    m_input_win_center_idx = 0;
+    m_output_win_center_idx = 0;
 
     assert(m_rt_out.size_max() == 2*std::max<int>(winlen()+m_timestep, m_rt_out_size_max));
     m_rt_out.clear();
@@ -311,13 +317,8 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     // Default to Hamming window, to avoid amplitude modulation by winsum normalisation, and thus gives perfect reconstruction
     phaseshift::win_hamming(&(pab->m_win), m_winlen);
 
-    pab->m_first_frame_at_t0 = m_first_frame_at_t0;
-    if (m_first_frame_at_t0) {
-        pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
-        pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);
-    } else {
-        pab->m_first_frame_at_t0_samples_to_skip = 0;
-    }
+    pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
+    pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);
     pab->m_extra_samples_to_skip = m_extra_samples_to_skip;
     pab->m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
     pab->m_extra_samples_to_flush = m_extra_samples_to_flush;
@@ -330,7 +331,8 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_status.skipping_samples_at_start = pab->m_first_frame_at_t0_samples_to_skip > 0;
     pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
     pab->m_status.flushing = false;
-    pab->m_win_center_idx = 0;
+    pab->m_input_win_center_idx = 0;
+    pab->m_output_win_center_idx = 0;
 
     // Only usefull when using proc_same_size(.)
     pab->m_rt_out_size_max = m_rt_out_size_max;
@@ -551,7 +553,6 @@ void phaseshift::dev::audio_block_ola_builder_test_singlethread() {
         pbuilder->set_timestep(timestep);
         pbuilder->set_winlen(winlen);
         pbuilder->set_in_out_same_size_max(chunk_size);
-        pbuilder->set_first_frame_at_t0(true);
 
         // DOUT << "fs=" << fs << ", winlen=" << winlen << ", timestep=" << timestep << ", chunk_size=" << chunk_size << std::endl;
 
