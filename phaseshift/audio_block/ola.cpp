@@ -21,6 +21,8 @@ void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift
     out = in;
     out *= win();  // TODO(GD) SPEEDUP Using Eigen
 
+    assert(false && "phaseshift::ola::proc_frame: Not implemented. It must be implemented in the derived class.");
+
     PHASESHIFT_PROF(dbg_proc_frame_time.end(0.0f);)
 }
 
