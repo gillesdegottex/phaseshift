@@ -146,7 +146,7 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
     int nb_samples_to_flush_total = m_frame_rolling.size() + m_extra_samples_to_flush;
 
     // Avoid blowing up the output buffer in case of flushing
-    if (nb_samples_to_flush_total > pout->size_max() - pout->size()) {
+    if (pout->size() + nb_samples_to_flush_total > pout->size_max()) {
         nb_samples_to_flush_total = pout->size_max() - pout->size();
         assert(false && "phaseshift::ola::flush: There is not enough space in the output buffer.");
     }
