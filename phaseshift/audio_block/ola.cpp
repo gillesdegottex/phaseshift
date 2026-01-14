@@ -37,21 +37,22 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     m_frame_input = m_frame_rolling;
     assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
 
+    m_input_win_center_idx = m_input_win_center_idx_next;  // TODO Simplify in status_t
     assert(m_input_win_center_idx >= 0 && "phaseshift::ola::proc: The input window center index is negative.");
-    assert(m_output_win_center_idx >= 0 && "phaseshift::ola::proc: The output window center index is negative.");
     m_status.input_win_center_idx = m_input_win_center_idx;
-    m_status.output_win_center_idx = m_output_win_center_idx;
-    proc_frame(m_frame_input, &m_frame_output, m_status);
-    assert(m_frame_output.size() > 0 && "phaseshift::ola::proc: The output frame is empty.");
-    m_status.first_frame = false;
+    m_status.output_win_center_idx = -m_first_frame_at_t0_samples_to_skip + m_output_length + (winlen()-1)/2;
 
+    proc_frame(m_frame_input, &m_frame_output, m_status);
     #ifndef NDEBUG
+        assert(m_frame_output.size() > 0 && "phaseshift::ola::proc: The output frame is empty.");
         for (int n=0; n<static_cast<int>(m_frame_output.size()); ++n) {
             assert(!std::isnan(m_frame_output[n]));
             assert(!std::isinf(m_frame_output[n]));
             assert(std::abs(m_frame_output[n]) < 1000.0f);
         }
     #endif
+
+    m_status.first_frame = false;
 
     // Add the content of the window and its shape
     m_out_sum += m_frame_output;
@@ -93,7 +94,6 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     m_out_sum_win.pop_front(nb_samples_to_flush_remains);
 
     // Prepare for next one
-    m_output_win_center_idx += std::max(0, nb_samples_to_flush_remains);  // = those of pout->push_back(.)
     m_out_sum.push_back(0.0f, nb_samples_to_flush);
     m_out_sum_win.push_back(0.0f, nb_samples_to_flush);
     m_frame_rolling.pop_front(m_timestep);
@@ -128,7 +128,7 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
 
             proc_win(pout, m_timestep);
 
-            m_input_win_center_idx += m_timestep;  // Rdy for next window
+            m_input_win_center_idx_next += m_timestep;  // Rdy for next window
         }
     }
 
@@ -143,7 +143,6 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
 
 
     // Number of user input samples that remains to be processed
-    int nb_input_samples_to_flush = m_frame_rolling.size() - (winlen()-1)/2;  // (winlen()-1)/2 was added at the begining to put first window center at t0=0
     int nb_samples_to_flush_total = m_frame_rolling.size() + m_extra_samples_to_flush;
 
     // Avoid blowing up the output buffer in case of flushing
@@ -174,9 +173,10 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
         m_status.fully_covered_by_window = false;
         proc_win(pout, nb_samples_to_flush);
 
-        nb_input_samples_to_flush -= nb_samples_to_flush;
-        if (nb_input_samples_to_flush > 0) {
-            m_input_win_center_idx += m_timestep;  // ... make it rdy for next window
+        // Do not go past the end of the input signal
+        // TODO(GD) Make it independent of global index
+        if (m_input_win_center_idx + m_timestep < m_input_length) {
+            m_input_win_center_idx_next += m_timestep;  // ... make it rdy for next window
         }
 
         nb_samples_to_flush_total -= nb_samples_to_flush;
@@ -275,8 +275,8 @@ void phaseshift::ola::reset() {
     m_status.flushing = false;
     m_input_length = 0;
     m_input_win_center_idx = 0;
+    m_input_win_center_idx_next = 0;
     m_output_length = 0;
-    m_output_win_center_idx = 0;
 
     assert(m_rt_out.size_max() == 2*std::max<int>(winlen()+m_timestep, m_rt_out_size_max));
     m_rt_out.clear();
@@ -340,8 +340,8 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_status.flushing = false;
     pab->m_input_length = 0;
     pab->m_input_win_center_idx = 0;
+    pab->m_input_win_center_idx_next = 0;
     pab->m_output_length = 0;
-    pab->m_output_win_center_idx = 0;
 
     // Only usefull when using proc_same_size(.)
     pab->m_rt_out_size_max = m_rt_out_size_max;

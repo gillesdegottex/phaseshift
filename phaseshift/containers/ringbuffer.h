@@ -30,22 +30,24 @@ namespace phaseshift {
 
         using acbench::ringbuffer<value_type>::size;
         using acbench::ringbuffer<value_type>::push_back;   // Brings all push_back member functions from acbench::ringbuffer
+        using acbench::ringbuffer<value_type>::push_front;  // Brings all push_front member functions from acbench::ringbuffer
 
         //! Convenience function
         inline void push_back(const double* array, int array_size) {
             for (int n=0; n < array_size; ++n)
                 push_back(array[n]);
         }
-
         inline void push_back(const phaseshift::vector<value_type>& v) {
             push_back(v.data(), v.size());
         }
-
         inline void push_back(const phaseshift::vector<value_type>& v, int start, int size) {
             assert(start >= 0);
             // assert(size <= v.size() - start);
             size = std::min(size, v.size() - start);
             push_back(v.data() + start, size);
+        }
+        inline void push_front(const phaseshift::vector<value_type>& v) {
+            acbench::ringbuffer<T>::push_front(v.data(), v.size());
         }
 
         // This case is commented out for being too generic

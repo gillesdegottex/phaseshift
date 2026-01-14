@@ -45,7 +45,7 @@ namespace phaseshift {
             // This function should be overwritten by the custom class that inherit phaseshift::ola
             virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status);
 
-            private:
+          private:
             proc_status m_status;
 
             phaseshift::ringbuffer<float> m_frame_rolling;
@@ -62,8 +62,8 @@ namespace phaseshift {
 
             phaseshift::globalcursor_t m_input_length = 0;
             phaseshift::globalcursor_t m_input_win_center_idx = 0;
+            phaseshift::globalcursor_t m_input_win_center_idx_next = 0;
             phaseshift::globalcursor_t m_output_length = 0;
-            phaseshift::globalcursor_t m_output_win_center_idx = 0;
 
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
 
@@ -76,12 +76,24 @@ namespace phaseshift {
             int m_stat_rt_nb_failed = 0;
             int m_stat_rt_out_size_min = phaseshift::int32::max();
 
-            protected:
+          protected:
             int m_timestep = -1;
+            phaseshift::globalcursor_t input_length() const {
+                return m_input_length;
+            }
+            inline void set_extra_samples_to_flush(int nbsamples) {
+                m_extra_samples_to_flush = nbsamples;
+            }
+            inline int extra_samples_to_flush() const {
+                return m_extra_samples_to_flush;
+            }
+            phaseshift::globalcursor_t input_win_center_idx() const {
+                return m_input_win_center_idx;
+            }
 
             ola();
 
-            public:
+          public:
 
             virtual ~ola();
 
