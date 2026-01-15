@@ -5,24 +5,24 @@
 // If you don't have a copy of this license, please visit:
 //     https://github.com/gillesdegottex/phaseshift
 
-#include <phaseshift/audio_block/wavfile.h>
+#include <phaseshift/audio_block/tinywavfile.h>
 
 #include <cstring>
 #include <cassert>
 
-phaseshift::wavfile::wavfile(int chunk_size_max) {
+phaseshift::tinywavfile::tinywavfile(int chunk_size_max) {
     assert(chunk_size_max > 0);
     m_chunk_size_max = chunk_size_max;
     m_chunk = new float[m_chunk_size_max];
     std::memset(&m_tw, 0, sizeof(m_tw));
 }
 
-void phaseshift::wavfile::close() {
+void phaseshift::tinywavfile::close() {
     // Note: tinywav_close_read/write handles null file pointer
     std::memset(&m_tw, 0, sizeof(m_tw));
 }
 
-phaseshift::wavfile::~wavfile() {
+phaseshift::tinywavfile::~tinywavfile() {
     close();
     if (m_chunk != nullptr) {
         delete[] m_chunk;
@@ -38,7 +38,7 @@ static bool open_wav_for_info(const std::string& file_path, TinyWav* tw) {
     return true;
 }
 
-float phaseshift::wavfile_reader::get_fs(const std::string& file_path) {
+float phaseshift::tinywavfile_reader::get_fs(const std::string& file_path) {
     assert(file_path != "");
 
     TinyWav tw;
@@ -51,7 +51,7 @@ float phaseshift::wavfile_reader::get_fs(const std::string& file_path) {
     return fs;
 }
 
-int phaseshift::wavfile_reader::get_nbchannels(const std::string& file_path) {
+int phaseshift::tinywavfile_reader::get_nbchannels(const std::string& file_path) {
     assert(file_path != "");
 
     TinyWav tw;
@@ -64,7 +64,7 @@ int phaseshift::wavfile_reader::get_nbchannels(const std::string& file_path) {
     return nbchannels;
 }
 
-int phaseshift::wavfile_reader::get_nbframes(const std::string& file_path) {
+int phaseshift::tinywavfile_reader::get_nbframes(const std::string& file_path) {
     assert(file_path != "");
 
     TinyWav tw;
@@ -77,7 +77,7 @@ int phaseshift::wavfile_reader::get_nbframes(const std::string& file_path) {
     return nbframes;
 }
 
-int phaseshift::wavfile_reader::get_bits_per_sample(const std::string& file_path) {
+int phaseshift::tinywavfile_reader::get_bits_per_sample(const std::string& file_path) {
     assert(file_path != "");
 
     TinyWav tw;
@@ -90,19 +90,19 @@ int phaseshift::wavfile_reader::get_bits_per_sample(const std::string& file_path
     return bits;
 }
 
-phaseshift::wavfile_reader::wavfile_reader(int chunk_size_max)
-    : phaseshift::wavfile(chunk_size_max) {
+phaseshift::tinywavfile_reader::tinywavfile_reader(int chunk_size_max)
+    : phaseshift::tinywavfile(chunk_size_max) {
 }
 
-phaseshift::wavfile_reader* phaseshift::wavfile_reader_builder::open(const std::string& file_path, int chunk_size_max, int channel_id) {
-    phaseshift::wavfile_reader_builder builder;
+phaseshift::tinywavfile_reader* phaseshift::tinywavfile_reader_builder::open(const std::string& file_path, int chunk_size_max, int channel_id) {
+    phaseshift::tinywavfile_reader_builder builder;
     builder.set_file_path(file_path);
     builder.set_chunk_size_max(chunk_size_max);
     builder.set_channel_id(channel_id);
     return builder.open();
 }
 
-phaseshift::wavfile_reader* phaseshift::wavfile_reader_builder::build(phaseshift::wavfile_reader* pab) {
+phaseshift::tinywavfile_reader* phaseshift::tinywavfile_reader_builder::build(phaseshift::tinywavfile_reader* pab) {
     assert(m_file_path != "" && "file_path has not been set");
     pab->m_file_path = m_file_path;
 
@@ -120,21 +120,21 @@ phaseshift::wavfile_reader* phaseshift::wavfile_reader_builder::build(phaseshift
 }
 
 
-phaseshift::wavfile_writer::wavfile_writer(int chunk_size_max)
-    : phaseshift::wavfile(chunk_size_max) {
+phaseshift::tinywavfile_writer::tinywavfile_writer(int chunk_size_max)
+    : phaseshift::tinywavfile(chunk_size_max) {
 }
 
-phaseshift::wavfile_writer::~wavfile_writer() {
+phaseshift::tinywavfile_writer::~tinywavfile_writer() {
     close();
 }
 
-void phaseshift::wavfile_writer::close() {
+void phaseshift::tinywavfile_writer::close() {
     if (tinywav_isOpen(&m_tw)) {
         tinywav_close_write(&m_tw);
     }
 }
 
-phaseshift::wavfile_writer* phaseshift::wavfile_writer_builder::build(phaseshift::wavfile_writer* pab) {
+phaseshift::tinywavfile_writer* phaseshift::tinywavfile_writer_builder::build(phaseshift::tinywavfile_writer* pab) {
     assert(m_file_path != "" && "file_path has not been set");
     assert(m_fs > 0 && "fs has not been set");
     pab->m_file_path = m_file_path;
@@ -160,8 +160,8 @@ phaseshift::wavfile_writer* phaseshift::wavfile_writer_builder::build(phaseshift
     return pab;
 }
 
-phaseshift::wavfile_writer* phaseshift::wavfile_writer_builder::open(const std::string& file_path, float fs, int chunk_size_max, int nbchannels, int bits_per_sample, bool use_float) {
-    wavfile_writer_builder builder;
+phaseshift::tinywavfile_writer* phaseshift::tinywavfile_writer_builder::open(const std::string& file_path, float fs, int chunk_size_max, int nbchannels, int bits_per_sample, bool use_float) {
+    tinywavfile_writer_builder builder;
     builder.set_file_path(file_path);
     builder.set_fs(fs);
     builder.set_chunk_size_max(chunk_size_max);

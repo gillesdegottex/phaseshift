@@ -7,8 +7,8 @@
 //
 // WAV file reader/writer using tinywav library
 
-#ifndef PHASESHIFT_AUDIO_BLOCK_WAVFILE_H_
-#define PHASESHIFT_AUDIO_BLOCK_WAVFILE_H_
+#ifndef PHASESHIFT_AUDIO_BLOCK_TINYWAVFILE_H_
+#define PHASESHIFT_AUDIO_BLOCK_TINYWAVFILE_H_
 
 #include <phaseshift/audio_block/audio_block.h>
 
@@ -27,7 +27,7 @@ namespace phaseshift {
         constexpr uint16_t FORMAT_IEEE_FLOAT = 3;
     }
 
-    class wavfile : public audio_block {
+    class tinywavfile : public audio_block {
      protected:
         std::string m_file_path;
         TinyWav m_tw;
@@ -38,18 +38,18 @@ namespace phaseshift {
         int m_channel_id = -1;
         int m_bits_per_sample = -1;
 
-        explicit wavfile(int chunk_size_max = 1024);
+        explicit tinywavfile(int chunk_size_max = 1024);
         void close();
-        virtual ~wavfile();
+        virtual ~tinywavfile();
 
      public:
     };
 
-    class wavfile_reader_builder;
+    class tinywavfile_reader_builder;
 
-    class wavfile_reader : public wavfile {
+    class tinywavfile_reader : public tinywavfile {
      protected:
-        explicit wavfile_reader(int chunk_size_max = 1024);
+        explicit tinywavfile_reader(int chunk_size_max = 1024);
 
      public:
         template<class ringbuffer>
@@ -94,16 +94,16 @@ namespace phaseshift {
             return read_frames_total;
         }
 
-        friend phaseshift::wavfile_reader_builder;
+        friend phaseshift::tinywavfile_reader_builder;
     };
 
-    class wavfile_reader_builder : public phaseshift::audio_block_builder {
+    class tinywavfile_reader_builder : public phaseshift::audio_block_builder {
      protected:
         std::string m_file_path = "";
         int m_chunk_size_max = 1024;
         int m_channel_id = 0;
 
-        wavfile_reader* build(wavfile_reader* pab);
+        tinywavfile_reader* build(tinywavfile_reader* pab);
 
      public:
         inline void set_file_path(const std::string& file_path) {
@@ -116,29 +116,29 @@ namespace phaseshift {
             m_channel_id = channel_id;
         }
 
-        wavfile_reader* open() {return build(new phaseshift::wavfile_reader(m_chunk_size_max));}
-        static wavfile_reader* open(const std::string& file_path, int chunk_size_max = 1024, int channel_id = 0);
+        tinywavfile_reader* open() {return build(new phaseshift::tinywavfile_reader(m_chunk_size_max));}
+        static tinywavfile_reader* open(const std::string& file_path, int chunk_size_max = 1024, int channel_id = 0);
     };
 
     template<class ringbuffer>
-    int phaseshift::wavfile_reader::read(const std::string& file_path, ringbuffer* pout, int chunk_size, int channel_id) {
-        auto reader = phaseshift::wavfile_reader_builder::open(file_path, chunk_size, channel_id);
+    int phaseshift::tinywavfile_reader::read(const std::string& file_path, ringbuffer* pout, int chunk_size, int channel_id) {
+        auto reader = phaseshift::tinywavfile_reader_builder::open(file_path, chunk_size, channel_id);
         if (reader == nullptr) return 0;
         while (reader->read(pout, chunk_size) > 0) {}
         delete reader;
         return pout->size();
     }
 
-    class wavfile_writer_builder;
+    class tinywavfile_writer_builder;
 
-    class wavfile_writer : public wavfile {
+    class tinywavfile_writer : public tinywavfile {
         phaseshift::globalcursor_t m_length = 0;
 
      protected:
-        explicit wavfile_writer(int chunk_size_max = 1024);
+        explicit tinywavfile_writer(int chunk_size_max = 1024);
 
      public:
-        ~wavfile_writer() override;
+        ~tinywavfile_writer() override;
         void close();
         template<class ringbuffer>
         static int write(const std::string& file_path, float fs, const ringbuffer& pin, int chunk_size = 1024, int bits_per_sample = 16, bool use_float = false);
@@ -211,10 +211,10 @@ namespace phaseshift {
             return written_frames_total;
         }
 
-        friend phaseshift::wavfile_writer_builder;
+        friend phaseshift::tinywavfile_writer_builder;
     };
 
-    class wavfile_writer_builder : public phaseshift::audio_block_builder {
+    class tinywavfile_writer_builder : public phaseshift::audio_block_builder {
      protected:
         std::string m_file_path = "";
         float m_fs = -1.0f;
@@ -223,7 +223,7 @@ namespace phaseshift {
         int m_bits_per_sample = 16;
         bool m_use_float = false;
 
-        wavfile_writer* build(wavfile_writer* pab);
+        tinywavfile_writer* build(tinywavfile_writer* pab);
 
      public:
         void set_file_path(const std::string& file_path) {
@@ -245,14 +245,14 @@ namespace phaseshift {
             m_use_float = use_float;
         }
 
-        wavfile_writer* open() {return build(new phaseshift::wavfile_writer(m_chunk_size_max));}
-        static wavfile_writer* open(const std::string& file_path, float fs, int chunk_size_max = 1024, int nbchannels = 1, int bits_per_sample = 16, bool use_float = false);
+        tinywavfile_writer* open() {return build(new phaseshift::tinywavfile_writer(m_chunk_size_max));}
+        static tinywavfile_writer* open(const std::string& file_path, float fs, int chunk_size_max = 1024, int nbchannels = 1, int bits_per_sample = 16, bool use_float = false);
     };
 
     template<class ringbuffer>
-    int phaseshift::wavfile_writer::write(const std::string& file_path, float fs, const ringbuffer& in, int chunk_size, int bits_per_sample, bool use_float) {
+    int phaseshift::tinywavfile_writer::write(const std::string& file_path, float fs, const ringbuffer& in, int chunk_size, int bits_per_sample, bool use_float) {
         assert(in.size() > 0 && "Audio channel is empty.");
-        auto writer = wavfile_writer_builder::open(file_path, fs, chunk_size, 1, bits_per_sample, use_float);
+        auto writer = tinywavfile_writer_builder::open(file_path, fs, chunk_size, 1, bits_per_sample, use_float);
         if (writer == nullptr) return 0;
         int size = writer->write(in);
         delete writer;
@@ -260,9 +260,9 @@ namespace phaseshift {
     }
 
     template<class ringbuffer>
-    int phaseshift::wavfile_writer::write(const std::string& file_path, float fs, const std::vector<ringbuffer*>& ins, int chunk_size, int bits_per_sample, bool use_float) {
+    int phaseshift::tinywavfile_writer::write(const std::string& file_path, float fs, const std::vector<ringbuffer*>& ins, int chunk_size, int bits_per_sample, bool use_float) {
         assert(ins.size() > 0 && "No audio channels exist for writing.");
-        auto writer = wavfile_writer_builder::open(file_path, fs, chunk_size, ins.size(), bits_per_sample, use_float);
+        auto writer = tinywavfile_writer_builder::open(file_path, fs, chunk_size, ins.size(), bits_per_sample, use_float);
         if (writer == nullptr) return 0;
         int size = writer->write(ins);
         delete writer;
@@ -271,4 +271,4 @@ namespace phaseshift {
 
 }  // namespace phaseshift
 
-#endif  // PHASESHIFT_AUDIO_BLOCK_WAVFILE_H_
+#endif  // PHASESHIFT_AUDIO_BLOCK_TINYWAVFILE_H_
