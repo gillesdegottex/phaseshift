@@ -49,23 +49,23 @@ inline bool write_u32_le(FILE* f, uint32_t val) {
     return fwrite(buf, 1, 4, f) == 4;
 }
 
-inline bool read_i16_le(FILE* f, int16_t* val) {
-    uint16_t uval;
-    if (!read_u16_le(f, &uval)) return false;
-    *val = static_cast<int16_t>(uval);
-    return true;
-}
+// inline bool read_i16_le(FILE* f, int16_t* val) {
+//     uint16_t uval;
+//     if (!read_u16_le(f, &uval)) return false;
+//     *val = static_cast<int16_t>(uval);
+//     return true;
+// }
 
 inline bool write_i16_le(FILE* f, int16_t val) {
     return write_u16_le(f, static_cast<uint16_t>(val));
 }
 
-inline bool read_f32_le(FILE* f, float* val) {
-    uint32_t uval;
-    if (!read_u32_le(f, &uval)) return false;
-    std::memcpy(val, &uval, 4);
-    return true;
-}
+// inline bool read_f32_le(FILE* f, float* val) {
+//     uint32_t uval;
+//     if (!read_u32_le(f, &uval)) return false;
+//     std::memcpy(val, &uval, 4);
+//     return true;
+// }
 
 inline bool write_f32_le(FILE* f, float val) {
     uint32_t uval;
