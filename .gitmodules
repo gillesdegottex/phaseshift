@@ -16,3 +16,6 @@
 [submodule "ext/cpptopdb"]
 	path = ext/cpptopdb
 	url = https://github.com/gillesdegottex/cpptopdb.git
+[submodule "ext/tinywav"]
+	path = ext/tinywav
+	url = https://github.com/mhroth/tinywav

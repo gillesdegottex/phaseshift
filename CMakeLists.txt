@@ -268,7 +268,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
 message(STATUS)
 message(STATUS "The ${PROJECT_NAME} library itself:")
 
-add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/wavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${PHASESHIFT_SOURCES_SUPPORT})
+add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/wavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c ${PHASESHIFT_SOURCES_SUPPORT})
 
 # Wait for sndfile to be built before building anything with phaseshift
 if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)

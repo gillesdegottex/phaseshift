@@ -5,18 +5,19 @@
 // If you don't have a copy of this license, please visit:
 //     https://github.com/gillesdegottex/phaseshift
 //
-// Minimalist WAV file reader/writer (no external dependencies)
-// Supports: PCM 16-bit and IEEE Float 32-bit, mono and multi-channel
+// WAV file reader/writer using tinywav library
 
 #ifndef PHASESHIFT_AUDIO_BLOCK_WAVFILE_H_
 #define PHASESHIFT_AUDIO_BLOCK_WAVFILE_H_
 
 #include <phaseshift/audio_block/audio_block.h>
 
-#include <cstdio>
 #include <cstdint>
 #include <string>
 #include <algorithm>
+#include <vector>
+
+#include <tinywav/tinywav.h>
 
 namespace phaseshift {
 
@@ -26,37 +27,10 @@ namespace phaseshift {
         constexpr uint16_t FORMAT_IEEE_FLOAT = 3;
     }
 
-    // WAV file header structures (not packed - use read/write helpers for I/O)
-    struct wav_header {
-        char riff[4];           // "RIFF"
-        uint32_t file_size;     // File size - 8
-        char wave[4];           // "WAVE"
-    };
-
-    struct wav_fmt_chunk {
-        char fmt[4];            // "fmt "
-        uint32_t chunk_size;    // 16 for PCM
-        uint16_t audio_format;  // 1=PCM, 3=IEEE float
-        uint16_t num_channels;
-        uint32_t sample_rate;
-        uint32_t byte_rate;     // sample_rate * num_channels * bits_per_sample/8
-        uint16_t block_align;   // num_channels * bits_per_sample/8
-        uint16_t bits_per_sample;
-    };
-
-    struct wav_data_chunk {
-        char data[4];           // "data"
-        uint32_t data_size;     // num_samples * num_channels * bits_per_sample/8
-    };
-
     class wavfile : public audio_block {
      protected:
         std::string m_file_path;
-        FILE* m_file_handle = nullptr;
-        wav_header m_header;
-        wav_fmt_chunk m_fmt;
-        wav_data_chunk m_data;
-        long m_data_start_pos = 0;
+        TinyWav m_tw;
 
         int m_chunk_size_max = 0;
         float* m_chunk = nullptr;
@@ -87,7 +61,7 @@ namespace phaseshift {
 
         //! Return the number of frames in the file
         inline phaseshift::globalcursor_t length() const {
-            return m_data.data_size / (m_fmt.num_channels * m_fmt.bits_per_sample / 8);
+            return m_tw.numFramesInHeader;
         }
         inline float duration() const {return length()/fs();}
 
@@ -99,22 +73,17 @@ namespace phaseshift {
             assert(m_nbchannels > 0);
             assert((m_nbchannels > 0) && (m_channel_id >= 0));
 
-            int bytes_per_sample = m_fmt.bits_per_sample / 8;
-            int frame_size = m_nbchannels * bytes_per_sample;
             int nbframes = std::min<int>(requested_size, m_chunk_size_max / m_nbchannels);
 
             int read_frames_total = 0;
             while (read_frames_total < requested_size) {
                 int frames_to_read = std::min(nbframes, requested_size - read_frames_total);
-                size_t bytes_read = fread(m_chunk, 1, frames_to_read * frame_size, m_file_handle);
-                int frames_read = bytes_read / frame_size;
-                if (frames_read == 0) break;
+                int frames_read = tinywav_read_f(&m_tw, m_chunk, frames_to_read);
+                if (frames_read <= 0) break;
 
-                // Convert and extract channel
-                const uint8_t* raw = reinterpret_cast<const uint8_t*>(m_chunk);
+                // Extract the requested channel from interleaved data
                 for (int n = 0; n < frames_read; ++n) {
-                    const uint8_t* sample_ptr = raw + n * frame_size + m_channel_id * bytes_per_sample;
-                    float sample = convert_to_float(sample_ptr);
+                    float sample = m_chunk[n * m_nbchannels + m_channel_id];
                     pout->push_back(sample);
                 }
 
@@ -126,9 +95,6 @@ namespace phaseshift {
         }
 
         friend phaseshift::wavfile_reader_builder;
-
-     private:
-        float convert_to_float(const uint8_t* sample_ptr) const;
     };
 
     class wavfile_reader_builder : public phaseshift::audio_block_builder {
@@ -167,7 +133,6 @@ namespace phaseshift {
 
     class wavfile_writer : public wavfile {
         phaseshift::globalcursor_t m_length = 0;
-        uint32_t m_written_bytes = 0;
 
      protected:
         explicit wavfile_writer(int chunk_size_max = 1024);
@@ -192,19 +157,23 @@ namespace phaseshift {
             proc_time_start();
 
             size_t read_samples_total = 0;
-            int written_samples_total = 0;
+            int written_frames_total = 0;
             while (read_samples_total < in.size()) {
                 int chunk_size = std::min<size_t>(in.size()-read_samples_total, m_chunk_size_max);
-                for (int n = 0; n < chunk_size; ++n, ++read_samples_total) {
-                    if (write_sample(in[read_samples_total]))
-                        ++written_samples_total;
+                for (int n = 0; n < chunk_size; ++n) {
+                    m_chunk[n] = in[read_samples_total + n];
                 }
+                int frames_written = tinywav_write_f(&m_tw, m_chunk, chunk_size);
+                if (frames_written > 0) {
+                    written_frames_total += frames_written;
+                }
+                read_samples_total += chunk_size;
             }
 
-            m_length += written_samples_total;
+            m_length += written_frames_total;
 
-            proc_time_end(written_samples_total/fs());
-            return written_samples_total;
+            proc_time_end(written_frames_total/fs());
+            return written_frames_total;
         }
 
         //! WARNING: Not multi-thread safe
@@ -223,25 +192,26 @@ namespace phaseshift {
             int written_frames_total = 0;
             while (read_frames_total < wavlen) {
                 int nbframes = std::min(wavlen-read_frames_total, m_chunk_size_max/m_nbchannels);
-                for (int n = 0; n < nbframes; ++n, ++read_frames_total) {
+                // Interleave channels into m_chunk
+                for (int n = 0; n < nbframes; ++n) {
                     for (int c = 0; c < m_nbchannels; ++c) {
-                        if (write_sample((*(ins[c]))[read_frames_total]))
-                            ++written_frames_total;
+                        m_chunk[n * m_nbchannels + c] = (*(ins[c]))[read_frames_total + n];
                     }
                 }
+                int frames_written = tinywav_write_f(&m_tw, m_chunk, nbframes);
+                if (frames_written > 0) {
+                    written_frames_total += frames_written;
+                }
+                read_frames_total += nbframes;
             }
 
-            m_length += written_frames_total / m_nbchannels;
+            m_length += written_frames_total;
 
-            proc_time_end(written_frames_total/m_nbchannels/fs());
-            return written_frames_total / m_nbchannels;
+            proc_time_end(written_frames_total/fs());
+            return written_frames_total;
         }
 
         friend phaseshift::wavfile_writer_builder;
-
-     private:
-        bool write_sample(float sample);
-        void finalize_header();
     };
 
     class wavfile_writer_builder : public phaseshift::audio_block_builder {
