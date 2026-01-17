@@ -222,109 +222,397 @@ namespace phaseshift {
             }
             return *this;
         }
-        // TODO(GD) SPEEDUP: like += operator
+        ringbuffer& operator-=(const phaseshift::vector<value_type>& v) {
+            assert(size() == v.size());
+
+            if (v.size() == 0)
+                return *this;
+
+            if (acbr::m_front+v.size() <= acbr::m_size_max) {
+                // No need to slice it
+                value_type* pdata = acbr::m_data+acbr::m_front;
+                value_type* pvdata = v.m_data;
+                for (int n = 0; n < v.size(); ++n)
+                    *pdata++ -= *pvdata++;
+
+            } else {
+                // Need to slice the array into two segments
+                int seg1size = acbr::m_size_max - acbr::m_front;
+                value_type* pdata = acbr::m_data+acbr::m_front;
+                value_type* pvdata = v.m_data;
+                for (int n = 0; n < seg1size; ++n)
+                    *pdata++ -= *pvdata++;
+
+                int seg2size = v.size() - seg1size;
+                pdata = acbr::m_data;
+                pvdata = v.m_data + seg1size;
+                for (int n = 0; n < seg2size; ++n)
+                    *pdata++ -= *pvdata++;
+            }
+            return *this;
+        }
         ringbuffer& operator-=(const phaseshift::ringbuffer<value_type>& rb) {
             assert(size() == rb.size());
 
-            for (int n=0; n < rb.size(); ++n)
-                (*this)[n] -= rb[n];
+            if (rb.size() == 0)
+                return *this;
 
+            if (acbr::m_front+rb.size() <= acbr::m_size_max) {
+                // Destination is continuous
+                if (rb.m_front+rb.size() <= rb.m_size_max) {
+                    // Source is also continuous
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < rb.size(); ++n)
+                        *pdst++ -= *psrc++;
+                } else {
+                    // Source wraps around
+                    int seg1size = rb.m_size_max - rb.m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < seg1size; ++n)
+                        *pdst++ -= *psrc++;
+
+                    int seg2size = rb.size() - seg1size;
+                    psrc = rb.m_data;
+                    for (int n = 0; n < seg2size; ++n)
+                        *pdst++ -= *psrc++;
+                }
+            } else {
+                // Destination wraps around
+                if (rb.m_front+rb.size() <= rb.m_size_max) {
+                    // Source is continuous
+                    int seg1size = acbr::m_size_max - acbr::m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < seg1size; ++n)
+                        *pdst++ -= *psrc++;
+
+                    int seg2size = rb.size() - seg1size;
+                    pdst = acbr::m_data;
+                    for (int n = 0; n < seg2size; ++n)
+                        *pdst++ -= *psrc++;
+                } else {
+                    // Both wrap - check alignment
+                    int dst_seg1 = acbr::m_size_max - acbr::m_front;
+                    int src_seg1 = rb.m_size_max - rb.m_front;
+                    if (dst_seg1 == src_seg1) {
+                        // Aligned wrap points
+                        value_type* pdst = acbr::m_data+acbr::m_front;
+                        value_type* psrc = rb.m_data+rb.m_front;
+                        for (int n = 0; n < dst_seg1; ++n)
+                            *pdst++ -= *psrc++;
+
+                        int seg2size = rb.size() - dst_seg1;
+                        pdst = acbr::m_data;
+                        psrc = rb.m_data;
+                        for (int n = 0; n < seg2size; ++n)
+                            *pdst++ -= *psrc++;
+                    } else {
+                        // Misaligned - fallback to indexed access
+                        for (int n = 0; n < rb.size(); ++n)
+                            (*this)[n] -= rb[n];
+                    }
+                }
+            }
             return *this;
         }
-        // TODO(GD) SPEEDUP: like += operator
+        ringbuffer& operator*=(const phaseshift::vector<value_type>& v) {
+            assert(size() == v.size());
+
+            if (v.size() == 0)
+                return *this;
+
+            if (acbr::m_front+v.size() <= acbr::m_size_max) {
+                // No need to slice it
+                value_type* pdata = acbr::m_data+acbr::m_front;
+                value_type* pvdata = v.m_data;
+                for (int n = 0; n < v.size(); ++n)
+                    *pdata++ *= *pvdata++;
+
+            } else {
+                // Need to slice the array into two segments
+                int seg1size = acbr::m_size_max - acbr::m_front;
+                value_type* pdata = acbr::m_data+acbr::m_front;
+                value_type* pvdata = v.m_data;
+                for (int n = 0; n < seg1size; ++n)
+                    *pdata++ *= *pvdata++;
+
+                int seg2size = v.size() - seg1size;
+                pdata = acbr::m_data;
+                pvdata = v.m_data + seg1size;
+                for (int n = 0; n < seg2size; ++n)
+                    *pdata++ *= *pvdata++;
+            }
+            return *this;
+        }
         ringbuffer& operator*=(const phaseshift::ringbuffer<value_type>& rb) {
             assert(size() == rb.size());
 
-            for (int n=0; n < rb.size(); ++n)
-                (*this)[n] *= rb[n];
+            if (rb.size() == 0)
+                return *this;
 
+            if (acbr::m_front+rb.size() <= acbr::m_size_max) {
+                // Destination is continuous
+                if (rb.m_front+rb.size() <= rb.m_size_max) {
+                    // Source is also continuous
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < rb.size(); ++n)
+                        *pdst++ *= *psrc++;
+                } else {
+                    // Source wraps around
+                    int seg1size = rb.m_size_max - rb.m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < seg1size; ++n)
+                        *pdst++ *= *psrc++;
+
+                    int seg2size = rb.size() - seg1size;
+                    psrc = rb.m_data;
+                    for (int n = 0; n < seg2size; ++n)
+                        *pdst++ *= *psrc++;
+                }
+            } else {
+                // Destination wraps around
+                if (rb.m_front+rb.size() <= rb.m_size_max) {
+                    // Source is continuous
+                    int seg1size = acbr::m_size_max - acbr::m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < seg1size; ++n)
+                        *pdst++ *= *psrc++;
+
+                    int seg2size = rb.size() - seg1size;
+                    pdst = acbr::m_data;
+                    for (int n = 0; n < seg2size; ++n)
+                        *pdst++ *= *psrc++;
+                } else {
+                    // Both wrap - check alignment
+                    int dst_seg1 = acbr::m_size_max - acbr::m_front;
+                    int src_seg1 = rb.m_size_max - rb.m_front;
+                    if (dst_seg1 == src_seg1) {
+                        // Aligned wrap points
+                        value_type* pdst = acbr::m_data+acbr::m_front;
+                        value_type* psrc = rb.m_data+rb.m_front;
+                        for (int n = 0; n < dst_seg1; ++n)
+                            *pdst++ *= *psrc++;
+
+                        int seg2size = rb.size() - dst_seg1;
+                        pdst = acbr::m_data;
+                        psrc = rb.m_data;
+                        for (int n = 0; n < seg2size; ++n)
+                            *pdst++ *= *psrc++;
+                    } else {
+                        // Misaligned - fallback to indexed access
+                        for (int n = 0; n < rb.size(); ++n)
+                            (*this)[n] *= rb[n];
+                    }
+                }
+            }
             return *this;
         }
-        // TODO(GD) SPEEDUP: like += operator
+        ringbuffer& operator/=(const phaseshift::vector<value_type>& v) {
+            assert(size() == v.size());
+
+            if (v.size() == 0)
+                return *this;
+
+            if (acbr::m_front+v.size() <= acbr::m_size_max) {
+                // No need to slice it
+                value_type* pdata = acbr::m_data+acbr::m_front;
+                value_type* pvdata = v.m_data;
+                for (int n = 0; n < v.size(); ++n)
+                    *pdata++ /= *pvdata++;
+
+            } else {
+                // Need to slice the array into two segments
+                int seg1size = acbr::m_size_max - acbr::m_front;
+                value_type* pdata = acbr::m_data+acbr::m_front;
+                value_type* pvdata = v.m_data;
+                for (int n = 0; n < seg1size; ++n)
+                    *pdata++ /= *pvdata++;
+
+                int seg2size = v.size() - seg1size;
+                pdata = acbr::m_data;
+                pvdata = v.m_data + seg1size;
+                for (int n = 0; n < seg2size; ++n)
+                    *pdata++ /= *pvdata++;
+            }
+            return *this;
+        }
         ringbuffer& operator/=(const phaseshift::ringbuffer<value_type>& rb) {
             assert(size() == rb.size());
 
-            for (int n=0; n < rb.size(); ++n)
-                (*this)[n] /= rb[n];
+            if (rb.size() == 0)
+                return *this;
 
+            if (acbr::m_front+rb.size() <= acbr::m_size_max) {
+                // Destination is continuous
+                if (rb.m_front+rb.size() <= rb.m_size_max) {
+                    // Source is also continuous
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < rb.size(); ++n)
+                        *pdst++ /= *psrc++;
+                } else {
+                    // Source wraps around
+                    int seg1size = rb.m_size_max - rb.m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < seg1size; ++n)
+                        *pdst++ /= *psrc++;
+
+                    int seg2size = rb.size() - seg1size;
+                    psrc = rb.m_data;
+                    for (int n = 0; n < seg2size; ++n)
+                        *pdst++ /= *psrc++;
+                }
+            } else {
+                // Destination wraps around
+                if (rb.m_front+rb.size() <= rb.m_size_max) {
+                    // Source is continuous
+                    int seg1size = acbr::m_size_max - acbr::m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n = 0; n < seg1size; ++n)
+                        *pdst++ /= *psrc++;
+
+                    int seg2size = rb.size() - seg1size;
+                    pdst = acbr::m_data;
+                    for (int n = 0; n < seg2size; ++n)
+                        *pdst++ /= *psrc++;
+                } else {
+                    // Both wrap - check alignment
+                    int dst_seg1 = acbr::m_size_max - acbr::m_front;
+                    int src_seg1 = rb.m_size_max - rb.m_front;
+                    if (dst_seg1 == src_seg1) {
+                        // Aligned wrap points
+                        value_type* pdst = acbr::m_data+acbr::m_front;
+                        value_type* psrc = rb.m_data+rb.m_front;
+                        for (int n = 0; n < dst_seg1; ++n)
+                            *pdst++ /= *psrc++;
+
+                        int seg2size = rb.size() - dst_seg1;
+                        pdst = acbr::m_data;
+                        psrc = rb.m_data;
+                        for (int n = 0; n < seg2size; ++n)
+                            *pdst++ /= *psrc++;
+                    } else {
+                        // Misaligned - fallback to indexed access
+                        for (int n = 0; n < rb.size(); ++n)
+                            (*this)[n] /= rb[n];
+                    }
+                }
+            }
             return *this;
         }
-        //! *this /= rb
+        //! *this /= rb (only first 'size' elements)
         void divide_equal_range(const phaseshift::ringbuffer<value_type>& rb, int size) {
             assert(size <= acbr::m_size);
             assert(size <= rb.m_size);
 
+            if (size == 0)
+                return;
+
             if (acbr::m_front+size <= acbr::m_size_max) {
                 // The destination segment is continuous
 
-                // Now let's see the source segment(s)
                 if (rb.m_front+size <= rb.size_max()) {
-                    // The source segment is continuous...
-                    // ... easiest game of my life
+                    // The source segment is also continuous
                     value_type* pdst = acbr::m_data+acbr::m_front;
                     value_type* psrc = rb.m_data+rb.m_front;
                     for (int n=0; n < size; ++n)
                         *pdst++ /= *psrc++;
 
                 } else {
-                    // The source segment is made of two continuous segments
+                    // Destination continuous, source wraps around
+                    int src_seg1 = rb.size_max() - rb.m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n=0; n < src_seg1; ++n)
+                        *pdst++ /= *psrc++;
 
-                    // Case never met yet:
-                    // Because the scenario that motivated writting ` divide_equal_range(.)`  was based on synchronous ringbuffers, which falls on cases (i) both segment are continuous, or (ii) both segments are non-continuous (with rb.size_max()-rb.m_front) == (size_max()-m_front) )
-
-                    // TODO(GD) SPEEDUP
-                    for (int n=0; n < size; ++n)
-                        (*this)[n] /= rb[n];
+                    int src_seg2 = size - src_seg1;
+                    psrc = rb.m_data;
+                    for (int n=0; n < src_seg2; ++n)
+                        *pdst++ /= *psrc++;
                 }
 
             } else {
-                // The destination segment is made of two continuous segments
+                // The destination segment wraps around
 
                 if (rb.m_front+size <= rb.size_max()) {
-                    // The source segment is continuous...
+                    // Destination wraps, source is continuous
+                    int dst_seg1 = acbr::m_size_max - acbr::m_front;
+                    value_type* pdst = acbr::m_data+acbr::m_front;
+                    value_type* psrc = rb.m_data+rb.m_front;
+                    for (int n=0; n < dst_seg1; ++n)
+                        *pdst++ /= *psrc++;
 
-                    // Case never met yet:
-                    // Because the scenario that motivated writting ` divide_equal_range(.)`  was based on synchronous ringbuffers, which falls on cases (i) both segment are continuous, or (ii) both segments are non-continuous (with rb.size_max()-rb.m_front) == (size_max()-m_front) )
-
-                    // TODO(GD) SPEEDUP
-                    for (int n=0; n < size; ++n)
-                        (*this)[n] /= rb[n];
+                    int dst_seg2 = size - dst_seg1;
+                    pdst = acbr::m_data;
+                    for (int n=0; n < dst_seg2; ++n)
+                        *pdst++ /= *psrc++;
 
                 } else {
-                    // The source segment is also made of two continuous segments...
-                    // ... worst game of my life.
+                    // Both wrap around
+                    int dst_seg1 = acbr::m_size_max - acbr::m_front;
+                    int src_seg1 = rb.size_max() - rb.m_front;
 
-                    // Let's check if the source's break point comes before or after the destination's max size.
-                    int diff = (rb.size_max()-rb.m_front) - (acbr::m_size_max-acbr::m_front);
-                    if (diff < 0) {
-
-                        // TODO(GD) SPEEDUP
-                        for (int n=0; n < size; ++n)
-                            (*this)[n] /= rb[n];
-
-                    } else if (diff > 0) {
-
-                        // TODO(GD) SPEEDUP
-                        for (int n=0; n < size; ++n)
-                            (*this)[n] /= rb[n];
-
-                    } else {  //  -> diff == 0
-
-                        // the source's break point comes on the destination's max size...
-                        // .. handle the 2 resulting segments
-
-                        // 1st segment
-                        int seg1size = acbr::m_size_max - acbr::m_front;
+                    if (dst_seg1 == src_seg1) {
+                        // Aligned wrap points - handle 2 segments
                         value_type* pdst = acbr::m_data + acbr::m_front;
-                        value_type* psrc = rb.m_data+rb.m_front;
-                        for (int n=0; n < seg1size; ++n)
+                        value_type* psrc = rb.m_data + rb.m_front;
+                        for (int n=0; n < dst_seg1; ++n)
                             *pdst++ /= *psrc++;
 
-                        // 2rd segment
-                        int seg2size = size - seg1size;
+                        int seg2size = size - dst_seg1;
                         pdst = acbr::m_data;
                         psrc = rb.m_data;
                         for (int n=0; n < seg2size; ++n)
+                            *pdst++ /= *psrc++;
+
+                    } else if (src_seg1 < dst_seg1) {
+                        // Source breaks first - handle 3 segments
+                        value_type* pdst = acbr::m_data + acbr::m_front;
+                        value_type* psrc = rb.m_data + rb.m_front;
+
+                        // Segment 1: both at start positions, up to source wrap
+                        for (int n=0; n < src_seg1; ++n)
+                            *pdst++ /= *psrc++;
+
+                        // Segment 2: destination continues, source wraps
+                        psrc = rb.m_data;
+                        int seg2size = dst_seg1 - src_seg1;
+                        for (int n=0; n < seg2size; ++n)
+                            *pdst++ /= *psrc++;
+
+                        // Segment 3: destination wraps
+                        pdst = acbr::m_data;
+                        int seg3size = size - dst_seg1;
+                        for (int n=0; n < seg3size; ++n)
+                            *pdst++ /= *psrc++;
+
+                    } else {
+                        // Destination breaks first - handle 3 segments
+                        value_type* pdst = acbr::m_data + acbr::m_front;
+                        value_type* psrc = rb.m_data + rb.m_front;
+
+                        // Segment 1: both at start positions, up to dest wrap
+                        for (int n=0; n < dst_seg1; ++n)
+                            *pdst++ /= *psrc++;
+
+                        // Segment 2: source continues, destination wraps
+                        pdst = acbr::m_data;
+                        int seg2size = src_seg1 - dst_seg1;
+                        for (int n=0; n < seg2size; ++n)
+                            *pdst++ /= *psrc++;
+
+                        // Segment 3: source wraps
+                        psrc = rb.m_data;
+                        int seg3size = size - src_seg1;
+                        for (int n=0; n < seg3size; ++n)
                             *pdst++ /= *psrc++;
                     }
                 }
