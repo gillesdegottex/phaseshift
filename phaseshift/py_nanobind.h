@@ -39,15 +39,13 @@ inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<
 }
 
 inline nb::ndarray<nb::numpy, float> ringbuffer2ndarray(const phaseshift::ringbuffer<float>& rb) {
-    // TODO(GD) Well... I hope there is something simpler... ask on github
-    // TODO(GD) 1) Steal the buffer of the output ringbuffer?
+    if (rb.size() == 0) {
+        return nb::ndarray<nb::numpy, float>(nullptr, { 0 });
+    }
     float* data = new float[rb.size()];
-    memcpy(data, rb.data(), sizeof(float)*rb.size());
-    // Delete 'data' when the 'owner' capsule expires
-    // https://nanobind.readthedocs.io/en/latest/ndarray.html
-    nb::capsule numpy_array_owner(data, [](void *p) noexcept {delete[] (float *) p;});
-    size_t shape[1] = { static_cast<size_t>(rb.size()) };
-    return nb::ndarray<nb::numpy, float>(data, 1, shape, numpy_array_owner);
+    rb.copy_to_contiguous(data);
+    nb::capsule owner(data, [](void* p) noexcept { delete[] (float*)p; });
+    return nb::ndarray<nb::numpy, float>(data, { static_cast<size_t>(rb.size()) }, owner);
 }
 
 inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<std::complex<float>>* in) {
@@ -95,15 +93,28 @@ inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<float>* 
 }
 
 inline nb::ndarray<nb::numpy, float> vector2ndarray(const phaseshift::vector<float>& vec) {
-    // TODO(GD) Well... I hope there is something simpler... ask on github
-    // TODO(GD) 1) Steal the buffer of the output ringbuffer
+    if (vec.size() == 0) {
+        return nb::ndarray<nb::numpy, float>(nullptr, { 0 });
+    }
     float* data = new float[vec.size()];
-    memcpy(data, vec.data(), sizeof(float)*vec.size());
-    // Delete 'data' when the 'owner' capsule expires
-    // https://nanobind.readthedocs.io/en/latest/ndarray.html
-    nb::capsule numpy_array_owner(data, [](void *p) noexcept {delete[] (float *) p;});
-    size_t shape[1] = { static_cast<size_t>(vec.size()) };
-    return nb::ndarray<nb::numpy, float>(data, 1, shape, numpy_array_owner);
+    std::memcpy(data, vec.data(), sizeof(float) * vec.size());
+    nb::capsule owner(data, [](void* p) noexcept { delete[] (float*)p; });
+    return nb::ndarray<nb::numpy, float>(data, { static_cast<size_t>(vec.size()) }, owner);
+}
+
+// Zero-copy version: transfers ownership of the vector's buffer to numpy.
+// WARNING: The vector is left empty after this call.
+inline nb::ndarray<nb::numpy, float> vector2ndarray_zerocopy(phaseshift::vector<float>* pvec) {
+    phaseshift::vector<float>& vec = *pvec;
+    auto [data, size] = vec.release_allocation();
+    if (data == nullptr) {
+        return nb::ndarray<nb::numpy, float>(nullptr, { 0 });
+    }
+    // Custom deleter for aligned memory allocated by phaseshift::vector
+    nb::capsule owner(data, [](void* p) noexcept {
+        phaseshift::allocation::aligned_free(p);
+    });
+    return nb::ndarray<nb::numpy, float>(data, { static_cast<size_t>(size) }, owner);
 }
 
 

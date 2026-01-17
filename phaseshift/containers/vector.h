@@ -14,11 +14,47 @@
 
 #include <fftscarf.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <phaseshift/containers/utils.h>
+
+// Cross-platform aligned memory allocation for SIMD optimization
+// Default to 32-byte alignment supports AVX/AVX2
+// For AVX-512, 64-byte alignment: Define PHASESHIFT_SIMD_ALIGNMENT before including the header or via compiler flags: -DPHASESHIFT_SIMD_ALIGNMENT=64
+// Disable alignment: If you don't need SIMD optimization: -DPHASESHIFT_SIMD_ALIGNMENT=1
+#ifndef PHASESHIFT_SIMD_ALIGNMENT
+#define PHASESHIFT_SIMD_ALIGNMENT 32
+#endif
+
+namespace phaseshift {
+    namespace allocation {
+
+        inline void* aligned_malloc(size_t size, size_t alignment) {
+            if (size == 0) return nullptr;
+            #if defined(_MSC_VER) || defined(__MINGW32__)
+                return _aligned_malloc(size, alignment);
+            #else
+                // std::aligned_alloc requires size to be a multiple of alignment
+                size_t aligned_size = ((size + alignment - 1) / alignment) * alignment;
+                return std::aligned_alloc(alignment, aligned_size);
+            #endif
+        }
+
+        inline void aligned_free(void* ptr) {
+            if (ptr == nullptr) return;
+            #if defined(_MSC_VER) || defined(__MINGW32__)
+                _aligned_free(ptr);
+            #else
+                std::free(ptr);
+            #endif
+        }
+
+    }  // namespace allocation
+}  // namespace phaseshift
 
 namespace phaseshift {
 
@@ -89,11 +125,26 @@ namespace phaseshift {
 
             m_size = 0;
         }
-        inline void clear() {
+        // Release ownership of the internal buffer.
+        // Returns {pointer, size}. Caller takes ownership and must call aligned_free().
+        // WARNING: After this call, the vector is invalid, an empty shell, without allocation.
+        inline std::pair<value_type*, int> release_allocation() {
+            value_type* ptr = m_data;
+            int sz = m_size;
+            m_data = nullptr;
             m_size = 0;
+            m_size_max = 0;
+            return {ptr, sz};
+        }
+        inline bool is_valid() const {
+            return m_data != nullptr;
         }
         ~vector() {
             destroy();
+        }
+
+        inline void clear() {
+            m_size = 0;
         }
 
         value_type* data() const {
