@@ -37,11 +37,25 @@ namespace phaseshift {
             if (size == 0) return nullptr;
             #if defined(_MSC_VER) || defined(__MINGW32__)
                 return _aligned_malloc(size, alignment);
+            #elif defined(__ANDROID__)
+                #if defined(ANDROID_API) && (ANDROID_API >= 28)
+                    // std::aligned_alloc requires size to be a multiple of alignment
+                    size_t aligned_size = ((size + alignment - 1) / alignment) * alignment;
+                    return std::aligned_alloc(alignment, aligned_size);
+                #else
+                    size_t aligned_size = ((size + alignment - 1) / alignment) * alignment;
+                    void* ptr = nullptr;
+                    if (posix_memalign(&ptr, alignment, aligned_size) != 0) {
+                        return nullptr;
+                    }
+                    return ptr;
+                #endif
             #else
                 // std::aligned_alloc requires size to be a multiple of alignment
                 size_t aligned_size = ((size + alignment - 1) / alignment) * alignment;
                 return std::aligned_alloc(alignment, aligned_size);
             #endif
+            return nullptr;
         }
 
         inline void aligned_free(void* ptr) {
@@ -86,7 +100,7 @@ namespace phaseshift {
 
         inline void destroy() {
             if (m_data != nullptr) {
-                delete[] m_data;
+                phaseshift::allocation::aligned_free(m_data);
                 m_data = nullptr;
             }
             m_size = 0;
@@ -120,7 +134,9 @@ namespace phaseshift {
             }
             destroy();
 
-            m_data = new value_type[size_max];  // TODO(GD) Force contiguous memory
+            // Aligned allocation for SIMD optimization (AVX/AVX2 requires 32-byte alignment)
+            m_data = static_cast<value_type*>(
+                phaseshift::allocation::aligned_malloc(sizeof(value_type) * size_max, PHASESHIFT_SIMD_ALIGNMENT));
             m_size_max = size_max;
 
             m_size = 0;
