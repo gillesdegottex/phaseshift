@@ -23,7 +23,7 @@ namespace phaseshift {
 
           public:
             struct proc_status {
-                bool first_frame;
+                bool first_input_frame;
                 bool last_frame;
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
@@ -31,13 +31,17 @@ namespace phaseshift {
                 phaseshift::globalcursor_t input_win_center_idx = 0;
                 phaseshift::globalcursor_t output_win_center_idx = 0;
                 inline std::string to_string() const {
-                    return "first_frame=" + std::to_string(first_frame) +
+                    return "first_input_frame=" + std::to_string(first_input_frame) +
                             " last_frame=" + std::to_string(last_frame) +
                             " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
                             " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
                             " flushing=" + std::to_string(flushing);
                 }
             };
+
+            struct failure_status {
+                long int nb_imperfect_reconstruction = 0;  // Number of samples with insufficient window coverage
+            } m_failure_status;
 
           protected:
             phaseshift::vector<float> m_win;
@@ -119,6 +123,10 @@ namespace phaseshift {
             virtual int latency() const {return winlen();}
 
             virtual void reset();
+
+            inline void failure_status_reset() {
+                m_failure_status.nb_imperfect_reconstruction = 0;
+            }
 
             inline int stat_rt_nb_failed() const {return m_stat_rt_nb_failed;}
             inline int stat_rt_out_size_min() const {return m_stat_rt_out_size_min;}

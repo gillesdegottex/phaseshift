@@ -44,7 +44,6 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
 
     proc_frame(m_frame_input, &m_frame_output, m_status);
     #ifndef NDEBUG
-        assert(m_frame_output.size() > 0 && "phaseshift::ola::proc: The output frame is empty.");
         for (int n=0; n<static_cast<int>(m_frame_output.size()); ++n) {
             assert(!std::isnan(m_frame_output[n]));
             assert(!std::isinf(m_frame_output[n]));
@@ -52,7 +51,10 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
         }
     #endif
 
-    m_status.first_frame = false;
+    m_status.first_input_frame = false;
+    m_frame_rolling.pop_front(m_timestep);
+
+    if (m_frame_output.size() > 0) {
 
     // Add the content of the window and its shape
     m_out_sum += m_frame_output;
@@ -70,10 +72,13 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     }
 
     // Flush the samples that can be flushed
-    // TODO(GD) This doesnt respect perfect reconstruction.
+    // TODO(GD) Need to ensure perfect reconstruction by:
+    //          - Cover the full input past beyond one step size after the last sample of the input signal. Not sure that absolutely necessary since the 2nd condition might be enough.
+    //          - Forbid timestep/windlen that do not overlap enough.
     for (int n=0; n<nb_samples_to_flush_remains; ++n) {
         if (m_out_sum_win[n] < 2*phaseshift::float32::eps()) {
             m_out_sum_win[n] = 1.0f;
+            m_failure_status.nb_imperfect_reconstruction++;
         }
     }
     m_out_sum.divide_equal_range(m_out_sum_win, nb_samples_to_flush_remains);
@@ -96,7 +101,7 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     // Prepare for next one
     m_out_sum.push_back(0.0f, nb_samples_to_flush);
     m_out_sum_win.push_back(0.0f, nb_samples_to_flush);
-    m_frame_rolling.pop_front(m_timestep);
+    }
 }
 
 void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
@@ -115,16 +120,6 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
         if (m_frame_rolling.size() == winlen()) {
             m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
             m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
-
-            // DOUT << "pout->size()=" << pout->size() << ", m_timestep=" << m_timestep << ", pout->size_max()=" << pout->size_max() << std::endl;
-            #ifndef NDEBUG
-                if (pout->size() + m_timestep > pout->size_max()) {  // TODO(GD) uh? sure of the condition?
-                    std::cerr << "phaseshift::ola::proc: There is not enough space in the output buffer. pout->size()="
-                            << pout->size() << " + m_timestep=" << m_timestep
-                            << " <= pout->size_max()=" << pout->size_max() << std::endl;
-                    assert(false);
-                }
-            #endif
 
             proc_win(pout, m_timestep);
 
@@ -268,7 +263,7 @@ void phaseshift::ola::reset() {
     m_out_sum.push_back(0.0f, winlen());
     m_out_sum_win.push_back(0.0f, winlen());
 
-    m_status.first_frame = true;
+    m_status.first_input_frame = true;
     m_status.last_frame = false;
     m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
     m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
@@ -285,6 +280,8 @@ void phaseshift::ola::reset() {
     m_stat_rt_nb_failed = 0;
     m_stat_rt_nb_post_underruns = 0;
     m_stat_rt_out_size_min = phaseshift::int32::max();
+
+    failure_status_reset();
 }
 
 
@@ -333,7 +330,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_out_sum.push_back(0.0f, m_winlen);
     pab->m_out_sum_win.push_back(0.0f, m_winlen);
 
-    pab->m_status.first_frame = true;
+    pab->m_status.first_input_frame = true;
     pab->m_status.last_frame = false;
     pab->m_status.skipping_samples_at_start = pab->m_first_frame_at_t0_samples_to_skip > 0;
     pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
