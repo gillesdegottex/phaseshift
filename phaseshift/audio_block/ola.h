@@ -117,7 +117,7 @@ namespace phaseshift {
 
             virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
-            virtual void flush(phaseshift::ringbuffer<float>* pout);
+            virtual void flush(phaseshift::ringbuffer<float>* pout, int additional_samples_to_flush = 0);
 
             //! [samples]
             virtual int latency() const {return winlen();}
