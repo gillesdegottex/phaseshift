@@ -71,8 +71,8 @@
     #define DOUTTAG(CHANNEL_NAME) phaseshift::g_debug_stream_android.set_filename(DFILE__).set_line(__LINE__).set_channel_name(CHANNEL_NAME)
 
 #else
-    #define DLINETAG(CHANNEL_NAME) std::cerr << DFILE__ << ":" << __LINE__ << std::endl;
-    #define DOUTTAG(CHANNEL_NAME) std::cerr << DFILE__ << ":" << __LINE__ << ": "
+    #define DLINETAG(CHANNEL_NAME) std::cerr << CHANNEL_NAME << ": " << DFILE__ << ":" << __LINE__ << std::endl;
+    #define DOUTTAG(CHANNEL_NAME) std::cerr << CHANNEL_NAME << ": " << DFILE__ << ":" << __LINE__ << ": "
 #endif
 
 #define DLINE DLINETAG("debug")

@@ -52,8 +52,12 @@ namespace phaseshift {
         explicit tinywavfile_reader(int chunk_size_max = 1024);
 
      public:
+        //! Read a single channel from a WAV file
         template<class ringbuffer>
         static int read(const std::string& file_path, ringbuffer* pout, int chunk_size_max = 1024, int channel_id = 0);
+        //! Read all channels from a WAV file as interleaved samples
+        template<class ringbuffer>
+        static int read_interleaved(const std::string& file_path, ringbuffer* pout, int chunk_size_max = 1024);
         static float get_fs(const std::string& file_path);
         static int get_nbchannels(const std::string& file_path);
         static int get_nbframes(const std::string& file_path);
@@ -66,6 +70,7 @@ namespace phaseshift {
         inline float duration() const {return length()/fs();}
 
         //! WARNING: Not multi-thread safe
+        //! Read a single channel, extracting from interleaved data
         template<class ringbuffer>
         int read(ringbuffer* pout, int requested_size) {
             proc_time_start();
@@ -85,6 +90,34 @@ namespace phaseshift {
                 for (int n = 0; n < frames_read; ++n) {
                     float sample = m_chunk[n * m_nbchannels + m_channel_id];
                     pout->push_back(sample);
+                }
+
+                read_frames_total += frames_read;
+            }
+
+            proc_time_end(read_frames_total/fs());
+            return read_frames_total;
+        }
+
+        //! WARNING: Not multi-thread safe
+        //! Read all channels as interleaved samples
+        template<class ringbuffer>
+        int read_interleaved(ringbuffer* pout, int requested_frames) {
+            proc_time_start();
+
+            assert(m_nbchannels > 0);
+
+            int nbframes = std::min<int>(requested_frames, m_chunk_size_max / m_nbchannels);
+
+            int read_frames_total = 0;
+            while (read_frames_total < requested_frames) {
+                int frames_to_read = std::min(nbframes, requested_frames - read_frames_total);
+                int frames_read = tinywav_read_f(&m_tw, m_chunk, frames_to_read);
+                if (frames_read <= 0) break;
+
+                // Copy all interleaved samples
+                for (int n = 0; n < frames_read * m_nbchannels; ++n) {
+                    pout->push_back(m_chunk[n]);
                 }
 
                 read_frames_total += frames_read;
@@ -117,7 +150,10 @@ namespace phaseshift {
         }
 
         tinywavfile_reader* open() {return build(new phaseshift::tinywavfile_reader(m_chunk_size_max));}
-        static tinywavfile_reader* open(const std::string& file_path, int chunk_size_max = 1024, int channel_id = 0);
+        //! Open for reading a single channel
+        static tinywavfile_reader* open(const std::string& file_path, int chunk_size_max, int channel_id);
+        //! Open for reading all channels (interleaved)
+        static tinywavfile_reader* open(const std::string& file_path, int chunk_size_max = 1024);
     };
 
     template<class ringbuffer>
@@ -127,6 +163,15 @@ namespace phaseshift {
         while (reader->read(pout, chunk_size) > 0) {}
         delete reader;
         return pout->size();
+    }
+
+    template<class ringbuffer>
+    int phaseshift::tinywavfile_reader::read_interleaved(const std::string& file_path, ringbuffer* pout, int chunk_size) {
+        auto reader = phaseshift::tinywavfile_reader_builder::open(file_path, chunk_size);
+        if (reader == nullptr) return 0;
+        while (reader->read_interleaved(pout, chunk_size) > 0) {}
+        delete reader;
+        return pout->size();  // Returns total samples (frames * channels)
     }
 
     class tinywavfile_writer_builder;

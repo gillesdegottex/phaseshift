@@ -63,13 +63,17 @@ namespace phaseshift {
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
             int m_rt_out_size_max = -1;
+            int m_output_added_max = -1;
+            bool m_flushing = false;
+            int m_nb_samples_to_flush_total = 0;
 
             phaseshift::globalcursor_t m_input_length = 0;
             phaseshift::globalcursor_t m_input_win_center_idx = 0;
             phaseshift::globalcursor_t m_input_win_center_idx_next = 0;
             phaseshift::globalcursor_t m_output_length = 0;
+            phaseshift::globalcursor_t m_output_win_center_idx = 0;
 
-            void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush);
+            void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
 
             // Member variables for real-time processing
             // input/output buffers to get output buffer same length as input buffer (often used for real-time use cases)
@@ -94,6 +98,12 @@ namespace phaseshift {
             phaseshift::globalcursor_t input_win_center_idx() const {
                 return m_input_win_center_idx;
             }
+            phaseshift::globalcursor_t output_length() const {
+                return m_output_length;
+            }
+            phaseshift::globalcursor_t output_win_center_idx() const {
+                return m_output_win_center_idx;
+            }
 
             ola();
 
@@ -104,6 +114,14 @@ namespace phaseshift {
             inline int winlen() const {return m_win.size();}
             inline const phaseshift::vector<float>& win() const {return m_win;}
             inline int timestep() const {return m_timestep;}
+
+            //! Limit the number of samples that can be added to the output buffer in one call to proc(.) or flush(.)
+            inline void set_output_added_max(int size) {
+                m_output_added_max = size;
+            }
+            inline int output_added_max() const {
+                return m_output_added_max;
+            }
             //! Returns the minimum number of samples (if not 0) that can be outputted in one call to proc(.)
             inline int min_output_size() const {
                 return m_timestep;
@@ -117,7 +135,7 @@ namespace phaseshift {
 
             virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
-            virtual void flush(phaseshift::ringbuffer<float>* pout, int additional_samples_to_flush = 0);
+            virtual void flush(phaseshift::ringbuffer<float>* pout);
 
             //! [samples]
             virtual int latency() const {return winlen();}

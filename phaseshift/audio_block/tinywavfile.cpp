@@ -102,6 +102,14 @@ phaseshift::tinywavfile_reader* phaseshift::tinywavfile_reader_builder::open(con
     return builder.open();
 }
 
+phaseshift::tinywavfile_reader* phaseshift::tinywavfile_reader_builder::open(const std::string& file_path, int chunk_size_max) {
+    phaseshift::tinywavfile_reader_builder builder;
+    builder.set_file_path(file_path);
+    builder.set_chunk_size_max(chunk_size_max);
+    // channel_id not set - used for interleaved reading of all channels
+    return builder.open();
+}
+
 phaseshift::tinywavfile_reader* phaseshift::tinywavfile_reader_builder::build(phaseshift::tinywavfile_reader* pab) {
     assert(m_file_path != "" && "file_path has not been set");
     pab->m_file_path = m_file_path;

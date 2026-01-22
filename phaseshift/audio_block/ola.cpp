@@ -32,7 +32,7 @@ phaseshift::ola::ola() {
 phaseshift::ola::~ola() {
 }
 
-void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_flush) {
+void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output) {
 
     m_frame_input = m_frame_rolling;
     assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
@@ -40,7 +40,8 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     m_input_win_center_idx = m_input_win_center_idx_next;  // TODO Simplify in status_t
     assert(m_input_win_center_idx >= 0 && "phaseshift::ola::proc: The input window center index is negative.");
     m_status.input_win_center_idx = m_input_win_center_idx;
-    m_status.output_win_center_idx = -m_first_frame_at_t0_samples_to_skip + m_output_length + (winlen()-1)/2;
+    m_output_win_center_idx = -m_first_frame_at_t0_samples_to_skip + m_output_length + (winlen()-1)/2;
+    m_status.output_win_center_idx = m_output_win_center_idx;
 
     proc_frame(m_frame_input, &m_frame_output, m_status);
     #ifndef NDEBUG
@@ -61,13 +62,13 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
         m_out_sum_win += m_win;
 
         // There are timestep samples that we can flush
-        int nb_samples_to_flush_remains = nb_samples_to_flush;
+        int nb_samples_to_output_remains = nb_samples_to_output;
         if (m_first_frame_at_t0_samples_to_skip > 0) {
             // TODO(GD) This skipping is only for offline mode. -> Make a separate dedicated class?
-            int nb_topop = std::min<int>(m_first_frame_at_t0_samples_to_skip,nb_samples_to_flush);
+            int nb_topop = std::min<int>(m_first_frame_at_t0_samples_to_skip,nb_samples_to_output);
             m_out_sum.pop_front(nb_topop);
             m_out_sum_win.pop_front(nb_topop);
-            nb_samples_to_flush_remains -= nb_topop;
+            nb_samples_to_output_remains -= nb_topop;
             m_first_frame_at_t0_samples_to_skip -= nb_topop;
         }
 
@@ -75,32 +76,33 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
         // TODO(GD) Need to ensure perfect reconstruction by:
         //          - Cover the full input past beyond one step size after the last sample of the input signal. Not sure that absolutely necessary since the 2nd condition might be enough.
         //          - Forbid timestep/windlen that do not overlap enough.
-        for (int n=0; n<nb_samples_to_flush_remains; ++n) {
+        for (int n=0; n<nb_samples_to_output_remains; ++n) {
             if (m_out_sum_win[n] < 2*phaseshift::float32::eps()) {
                 m_out_sum_win[n] = 1.0f;
                 m_failure_status.nb_imperfect_reconstruction++;
             }
         }
-        m_out_sum.divide_equal_range(m_out_sum_win, nb_samples_to_flush_remains);
+        m_out_sum.divide_equal_range(m_out_sum_win, nb_samples_to_output_remains);
 
         #ifndef NDEBUG
-            for (int n=0; n<nb_samples_to_flush_remains; ++n) {
+            for (int n=0; n<nb_samples_to_output_remains; ++n) {
                 assert(!std::isnan(m_out_sum[n]));
                 assert(!std::isinf(m_out_sum[n]));
                 assert(std::abs(m_out_sum[n]) < 1000.0f && "The output signal is suspiciously large. Did you forget to apply a window?");
             }
         #endif
 
-        assert(pout->size()+nb_samples_to_flush_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
+        assert(pout->size()+nb_samples_to_output_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
 
-        pout->push_back(m_out_sum, 0, nb_samples_to_flush_remains);
-        m_output_length += nb_samples_to_flush_remains;
-        m_out_sum.pop_front(nb_samples_to_flush_remains);
-        m_out_sum_win.pop_front(nb_samples_to_flush_remains);
+        assert((m_output_added_max==-1) || (nb_samples_to_output_remains <= m_output_added_max));
+        pout->push_back(m_out_sum, 0, nb_samples_to_output_remains);
+        m_output_length += nb_samples_to_output_remains;
+        m_out_sum.pop_front(nb_samples_to_output_remains);
+        m_out_sum_win.pop_front(nb_samples_to_output_remains);
 
         // Prepare for next one
-        m_out_sum.push_back(0.0f, nb_samples_to_flush);
-        m_out_sum_win.push_back(0.0f, nb_samples_to_flush);
+        m_out_sum.push_back(0.0f, nb_samples_to_output);
+        m_out_sum_win.push_back(0.0f, nb_samples_to_output);
     }
 }
 
@@ -130,17 +132,22 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
     proc_time_end(in.size()/fs());
 }
 
-void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout, int additional_samples_to_flush) {
+void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
 
-    if (m_status.flushing)  // Prevent running flush multiple times. Once must be enough.
-        return;
+    if (!m_flushing) {  // First time flushing
+        // Number of user input samples that remains to be processed
+        m_nb_samples_to_flush_total = m_frame_rolling.size() + m_extra_samples_to_flush;
+    }
+    m_flushing = true;
     m_status.flushing = true;
 
-
-    // Number of user input samples that remains to be processed
-    int nb_samples_to_flush_total = m_frame_rolling.size() + m_extra_samples_to_flush + additional_samples_to_flush;
+    // assert(m_output_added_max >= winlen());
 
     // Avoid blowing up the output buffer in case of flushing
+    int nb_samples_to_flush_total = m_nb_samples_to_flush_total;
+    if (m_output_added_max > 0) {
+        nb_samples_to_flush_total = std::min(nb_samples_to_flush_total, m_output_added_max);
+    }
     if (pout->size() + nb_samples_to_flush_total > pout->size_max()) {
         nb_samples_to_flush_total = pout->size_max() - pout->size();
         assert(false && "phaseshift::ola::flush: There is not enough space in the output buffer.");
@@ -175,11 +182,16 @@ void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout, int additional_
         }
 
         nb_samples_to_flush_total -= nb_samples_to_flush;
+        m_nb_samples_to_flush_total -= nb_samples_to_flush;
+        assert(nb_samples_to_flush_total >= 0);
 
     } while (nb_samples_to_flush_total > 0);
 
-    m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
-    // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
+    if (m_nb_samples_to_flush_total == 0) {
+        // Reached the end of the stream
+        m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
+        // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
+    }
 }
 
 
@@ -262,6 +274,8 @@ void phaseshift::ola::reset() {
 
     m_out_sum.push_back(0.0f, winlen());
     m_out_sum_win.push_back(0.0f, winlen());
+    m_flushing = false;
+    m_nb_samples_to_flush_total = 0;
 
     m_status.first_input_frame = true;
     m_status.last_frame = false;
@@ -271,6 +285,7 @@ void phaseshift::ola::reset() {
     m_input_length = 0;
     m_input_win_center_idx = 0;
     m_input_win_center_idx_next = 0;
+    m_output_win_center_idx = 0;
     m_output_length = 0;
 
     assert(m_rt_out.size_max() == 2*std::max<int>(winlen()+m_timestep, m_rt_out_size_max));
@@ -339,6 +354,9 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_input_win_center_idx = 0;
     pab->m_input_win_center_idx_next = 0;
     pab->m_output_length = 0;
+    pab->m_output_win_center_idx = 0;
+    pab->m_flushing = false;
+    pab->m_nb_samples_to_flush_total = 0;
 
     // Only usefull when using proc_same_size(.)
     pab->m_rt_out_size_max = m_rt_out_size_max;
@@ -354,6 +372,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_stat_rt_out_size_min = phaseshift::int32::max();
 
     build_time_end();
+
     return pab;
 }
 
