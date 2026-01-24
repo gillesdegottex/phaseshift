@@ -58,6 +58,7 @@ namespace phaseshift {
 
             phaseshift::ringbuffer<float> m_out_sum;
             phaseshift::ringbuffer<float> m_out_sum_win;
+            phaseshift::ringbuffer<float> m_out;
 
             int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
@@ -131,11 +132,13 @@ namespace phaseshift {
                 return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
             }
 
-            virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+            virtual void proc(const phaseshift::ringbuffer<float>& in);
+            virtual void flush(int chunk_size=-1);
+            int fetch_available();
+            int fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
 
-            virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+            // virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
-            virtual void flush(phaseshift::ringbuffer<float>* pout);
 
             //! [samples]
             virtual int latency() const {return winlen();}
@@ -170,7 +173,8 @@ namespace phaseshift {
             int m_timestep = -1;
             int m_extra_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
-            int m_rt_out_size_max = -1;
+            // int m_rt_out_size_max = -1;
+            int m_output_buffer_size = -1;
 
             public:
             inline void set_winlen(int winlen) {
@@ -181,15 +185,19 @@ namespace phaseshift {
                 assert(timestep > 0);
                 m_timestep = timestep;
             }
+            inline void set_output_buffer_size(int out_size) {
+                assert(out_size > 0);
+                m_output_buffer_size = out_size;
+            }
             inline void set_extra_samples_to_skip(int nbsamples) {
                 m_extra_samples_to_skip = nbsamples;
             }
             inline void set_extra_samples_to_flush(int nbsamples) {
                 m_extra_samples_to_flush = nbsamples;
             }
-            inline void set_in_out_same_size_max(int size_max) {
-                m_rt_out_size_max = size_max;
-            }
+            // inline void set_in_out_same_size_max(int size_max) {
+            //     m_rt_out_size_max = size_max;
+            // }
 
             inline int winlen() const {return m_winlen;}
             inline int timestep() const {return m_timestep;}
