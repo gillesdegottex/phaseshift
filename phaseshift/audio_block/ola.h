@@ -28,6 +28,7 @@ namespace phaseshift {
                 bool fully_covered_by_window;
                 bool skipping_samples_at_start;
                 bool flushing;
+                bool finished;
                 phaseshift::globalcursor_t input_win_center_idx = 0;
                 phaseshift::globalcursor_t output_win_center_idx = 0;
                 inline std::string to_string() const {
@@ -36,6 +37,16 @@ namespace phaseshift {
                             " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
                             " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
                             " flushing=" + std::to_string(flushing);
+                }
+                inline void reset() {
+                    first_input_frame = true;
+                    last_frame = false;
+                    fully_covered_by_window = false;
+                    skipping_samples_at_start = true;
+                    flushing = false;
+                    finished = false;
+                    input_win_center_idx = 0;
+                    output_win_center_idx = 0;
                 }
             };
 
@@ -63,10 +74,8 @@ namespace phaseshift {
             int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
-            int m_rt_out_size_max = -1;
-            int m_output_added_max = -1;
-            bool m_flushing = false;
-            int m_nb_samples_to_flush_total = 0;
+            // int m_output_added_max = -1;
+            int m_flush_nb_samples_total = 0;
 
             phaseshift::globalcursor_t m_input_length = 0;
             phaseshift::globalcursor_t m_input_win_center_idx = 0;
@@ -77,33 +86,18 @@ namespace phaseshift {
             void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
 
             // Member variables for real-time processing
-            // input/output buffers to get output buffer same length as input buffer (often used for real-time use cases)
-            phaseshift::ringbuffer<float> m_rt_out;
-            bool m_rt_received_samples = false;
-
+            int m_rt_prepad_latency_remaining = -1;
             int m_stat_rt_nb_post_underruns = 0;
             int m_stat_rt_nb_failed = 0;
             int m_stat_rt_out_size_min = phaseshift::int32::max();
 
           protected:
             int m_timestep = -1;
-            phaseshift::globalcursor_t input_length() const {
-                return m_input_length;
-            }
             inline void set_extra_samples_to_flush(int nbsamples) {
                 m_extra_samples_to_flush = nbsamples;
             }
             inline int extra_samples_to_flush() const {
                 return m_extra_samples_to_flush;
-            }
-            phaseshift::globalcursor_t input_win_center_idx() const {
-                return m_input_win_center_idx;
-            }
-            phaseshift::globalcursor_t output_length() const {
-                return m_output_length;
-            }
-            phaseshift::globalcursor_t output_win_center_idx() const {
-                return m_output_win_center_idx;
             }
 
             ola();
@@ -116,13 +110,32 @@ namespace phaseshift {
             inline const phaseshift::vector<float>& win() const {return m_win;}
             inline int timestep() const {return m_timestep;}
 
-            //! Limit the number of samples that can be added to the output buffer in one call to proc(.) or flush(.)
-            inline void set_output_added_max(int size) {
-                m_output_added_max = size;
+            phaseshift::globalcursor_t input_length() const {
+                return m_input_length;
             }
-            inline int output_added_max() const {
-                return m_output_added_max;
+            phaseshift::globalcursor_t input_win_center_idx() const {
+                return m_input_win_center_idx;
             }
+            phaseshift::globalcursor_t output_length() const {
+                return m_output_length;
+            }
+            phaseshift::globalcursor_t output_win_center_idx() const {
+                return m_output_win_center_idx;
+            }
+            inline bool flushing() const {
+                return m_status.flushing;
+            }
+            inline bool finished() const {
+                return m_status.finished;
+            }
+
+            // //! Limit the number of samples that can be added to the output buffer in one call to proc(.) or flush(.)
+            // inline void set_output_added_max(int size) {
+            //     m_output_added_max = size;
+            // }
+            // inline int output_added_max() const {
+            //     return m_output_added_max;
+            // }
             //! Returns the minimum number of samples (if not 0) that can be outputted in one call to proc(.)
             inline int min_output_size() const {
                 return m_timestep;
@@ -132,10 +145,18 @@ namespace phaseshift {
                 return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
             }
 
-            virtual void proc(const phaseshift::ringbuffer<float>& in);
-            virtual void flush(int chunk_size=-1);
+            virtual void process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
+            //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
+            int flush_available();
+            virtual void flush(int chunk_size=-1, phaseshift::ringbuffer<float>* pout=nullptr);
             int fetch_available();
             int fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
+
+            //! Convenience function for offline processing calling the primitives in the right order
+            void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size);
+            void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+            //! Convenience function for real-time processing calling the primitives in the right order
+            void process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
             // virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
@@ -174,7 +195,7 @@ namespace phaseshift {
             int m_extra_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
             // int m_rt_out_size_max = -1;
-            int m_output_buffer_size = -1;
+            int m_output_buffer_size_max = -1;
 
             public:
             inline void set_winlen(int winlen) {
@@ -185,9 +206,9 @@ namespace phaseshift {
                 assert(timestep > 0);
                 m_timestep = timestep;
             }
-            inline void set_output_buffer_size(int out_size) {
-                assert(out_size > 0);
-                m_output_buffer_size = out_size;
+            inline void set_output_buffer_size_max(int out_size_max) {
+                assert(out_size_max > 0);
+                m_output_buffer_size_max = out_size_max;
             }
             inline void set_extra_samples_to_skip(int nbsamples) {
                 m_extra_samples_to_skip = nbsamples;
