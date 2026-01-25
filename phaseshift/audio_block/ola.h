@@ -74,7 +74,6 @@ namespace phaseshift {
             int m_extra_samples_to_skip = 0;
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
-            // int m_output_added_max = -1;
             int m_flush_nb_samples_total = 0;
 
             phaseshift::globalcursor_t m_input_length = 0;
@@ -129,14 +128,7 @@ namespace phaseshift {
                 return m_status.finished;
             }
 
-            // //! Limit the number of samples that can be added to the output buffer in one call to proc(.) or flush(.)
-            // inline void set_output_added_max(int size) {
-            //     m_output_added_max = size;
-            // }
-            // inline int output_added_max() const {
-            //     return m_output_added_max;
-            // }
-            //! Returns the minimum number of samples (if not 0) that can be outputted in one call to proc(.)
+            //! Returns the minimum number of samples, bigger than zero, that can be outputted in one call to proc(.)
             inline int min_output_size() const {
                 return m_timestep;
             }
@@ -153,12 +145,15 @@ namespace phaseshift {
             int fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
 
             //! Convenience function for offline processing calling the primitives in the right order
-            void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size);
             void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
-            //! Convenience function for real-time processing calling the primitives in the right order
-            void process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
-            // virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+            //! Example function (see its code), for offline processing with a fixed chunk size
+            //  WARNING: This function allocates a temporary buffer for building the chunk.
+            void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size);
+            
+            //! Convenience function for real-time processing calling the primitives in the right order
+            //  pout will receive exactly in.size() samples
+            void process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
 
             //! [samples]

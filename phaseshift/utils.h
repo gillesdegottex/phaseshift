@@ -133,21 +133,25 @@ namespace phaseshift {
         return dftlen;
     }
 
-    // Shortcuts
+    // Shortcuts TODO rm
     namespace int32 {
-        inline constexpr int size()  {return sizeof(int32_t);}
-        inline constexpr double eps()   {return std::numeric_limits<int32_t>::epsilon();}
-        inline constexpr double min()   {return (std::numeric_limits<int32_t>::min)();}
-        inline constexpr double max()   {return (std::numeric_limits<int32_t>::max)();}
+        // inline constexpr int size()  {return sizeof(int32_t);}
+        inline constexpr int32_t min()   {return (std::numeric_limits<int32_t>::min)();}
+        inline constexpr int32_t max()   {return (std::numeric_limits<int32_t>::max)();}
+    }
+    namespace int64 {
+        // inline constexpr int size()  {return sizeof(int64_t);}
+        inline constexpr int64_t min()   {return (std::numeric_limits<int64_t>::min)();}
+        inline constexpr int64_t max()   {return (std::numeric_limits<int64_t>::max)();}
     }
     namespace float32 {
-        inline constexpr int size()  {return sizeof(float);}
+        // inline constexpr int size()  {return sizeof(float);}
         inline constexpr double eps()   {return std::numeric_limits<float>::epsilon();}
         inline constexpr double min()   {return (std::numeric_limits<float>::min)();}
         inline constexpr double max()   {return (std::numeric_limits<float>::max)();}
     }
     namespace float64 {
-        inline constexpr int size()  {return sizeof(double);}
+        // inline constexpr int size()  {return sizeof(double);}
         inline constexpr double eps()   {return std::numeric_limits<double>::epsilon();}
         inline constexpr double min()   {return (std::numeric_limits<double>::min)();}
         inline constexpr double max()   {return (std::numeric_limits<double>::max)();}

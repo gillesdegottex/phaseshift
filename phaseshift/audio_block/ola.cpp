@@ -94,7 +94,6 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
 
         assert(pout->size()+nb_samples_to_output_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
 
-        // assert((m_output_added_max==-1) || (nb_samples_to_output_remains <= m_output_added_max));
         pout->push_back(m_out_sum, 0, nb_samples_to_output_remains);
         m_output_length += nb_samples_to_output_remains;
         m_out_sum.pop_front(nb_samples_to_output_remains);
@@ -240,7 +239,6 @@ int phaseshift::ola::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_m
     return chunk_size;
 }
 
-//! WARNING: This function allocates a temporary buffer for building the chunk.
 void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size) {
 
     phaseshift::ringbuffer<float> chunk_in;
@@ -255,7 +253,7 @@ void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, p
 
         process(chunk_in);
 
-        fetch(pout); // Empty the internal output buffer as much as possible
+        while (fetch(pout) > 0) {}
     }
 
     // Flush remaining data in chunks
@@ -517,6 +515,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 if (mode == int(mode_offline)) {
 
                     pab->process_offline(signal_in, &signal_out);
+                    // pab->process_offline(signal_in, &signal_out, chunk_size);
 
                     nb_samples_total = signal_out.size();
 
