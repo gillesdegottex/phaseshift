@@ -88,7 +88,7 @@ namespace phaseshift {
             int m_rt_prepad_latency_remaining = -1;
             int m_stat_rt_nb_post_underruns = 0;
             int m_stat_rt_nb_failed = 0;
-            int m_stat_rt_out_size_min = phaseshift::int32::max();
+            int m_stat_rt_out_size_min = std::numeric_limits<int>::max();
 
           protected:
             int m_timestep = -1;
@@ -97,6 +97,9 @@ namespace phaseshift {
             }
             inline int extra_samples_to_flush() const {
                 return m_extra_samples_to_flush;
+            }
+            inline proc_status status() const {
+                return m_status;
             }
 
             ola();
@@ -137,23 +140,31 @@ namespace phaseshift {
                 return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
             }
 
-            virtual void process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
+            //! Returns the number of samples that can be inputted in the next call to process(.)
+            //  WARNING: Note the assymetry with the other flush/fetch fonctions. process_available() is about input samples, whereas return value of process(.) is about output samples.
+            virtual int process_available();
+            //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
+            virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
+            //! Returns the number of samples that remains to be flushed/outputted.
+            inline int flush_available() const {return m_flush_nb_samples_total;}
             //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
-            int flush_available();
-            virtual void flush(int chunk_size=-1, phaseshift::ringbuffer<float>* pout=nullptr);
-            int fetch_available();
+            //  Returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
+            virtual int flush(int chunk_size_max=-1, phaseshift::ringbuffer<float>* pout=nullptr);
+            //! Returns the number of samples that can be fetched in a single call to fetch(.)
+            inline int fetch_available() const {return m_out.size();}
+            //! Return the number of samples actually fetched.
             int fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
 
             //! Convenience function for offline processing calling the primitives in the right order
-            void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+            virtual void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
             //! Example function (see its code), for offline processing with a fixed chunk size
             //  WARNING: This function allocates a temporary buffer for building the chunk.
-            void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size);
-            
+            virtual void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size);
+
             //! Convenience function for real-time processing calling the primitives in the right order
-            //  pout will receive exactly in.size() samples
-            void process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
+            //  With this function, pout will always receive exactly in.size() samples
+            virtual void process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);
 
 
             //! [samples]
