@@ -31,7 +31,7 @@ phaseshift::ola::ola() {
 phaseshift::ola::~ola() {
 }
 
-void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output) {
+int phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output) {
     assert(pout!=nullptr && "phaseshift::ola::proc_win: The output buffer is nullptr.");
 
     m_frame_input = m_frame_rolling;
@@ -55,7 +55,9 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
     m_status.first_input_frame = false;
     m_frame_rolling.pop_front(m_timestep);
 
-    if (m_frame_output.size() > 0) {
+    if (m_frame_output.size() == 0) {
+        return 0;
+    } else {
 
         // Add the content of the window and its shape
         m_out_sum += m_frame_output;
@@ -70,6 +72,8 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
             m_out_sum_win.pop_front(nb_topop);
             nb_samples_to_output_remains -= nb_topop;
             m_first_frame_at_t0_samples_to_skip -= nb_topop;
+        } else {
+            m_status.padding_start = false;
         }
 
         // Flush the samples that can be flushed
@@ -102,10 +106,12 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
         // Prepare for next one
         m_out_sum.push_back(0.0f, nb_samples_to_output);
         m_out_sum_win.push_back(0.0f, nb_samples_to_output);
+
+        return nb_samples_to_output;
     }
 }
 
-int phaseshift::ola::process_available() {
+int phaseshift::ola::process_input_available() {
 
     // That's the expression just for a standard OLA processing.
     int available_out_space = m_out.size_max() - m_out.size();
@@ -138,11 +144,9 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
         in_n += nb_samples_for_winlen;
 
         if (m_frame_rolling.size() == winlen()) {
-            m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-            m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
 
-            proc_win(pout, m_timestep);
-            nb_output += m_timestep;
+            int nb_output_this_step = proc_win(pout, m_timestep);
+            nb_output += nb_output_this_step;
 
             m_input_win_center_idx_next += m_timestep;  // Rdy for next window
         }
@@ -169,7 +173,13 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
 
     if (!m_status.flushing) {  // First time flushing
         // Number of output samples that remains to be flushed
-        m_flush_nb_samples_total = m_frame_rolling.size() + m_extra_samples_to_flush;
+        m_flush_nb_samples_total = m_frame_rolling.size();
+        // We absolutely need to flush at least m_frame_rolling.size()
+        if (m_extra_samples_to_flush > 0) {
+            // So add the extra samples to flush only if positive.
+            // If they are eventually too many samples, daughter classes should handle the case.
+            m_flush_nb_samples_total += m_extra_samples_to_flush;
+        }
         m_status.flushing = true;
     }
 
@@ -186,15 +196,16 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         // Fill rolling buffer to winlen with zeros (limited by chunk_size_max if set)
         int zeros_needed = winlen() - m_frame_rolling.size();
         if (zeros_needed > 0) {
-            if (chunk_size_max > 0) {
+            if (chunk_size_max > 0) {  // It can be -1 for disable
                 zeros_needed = std::min(zeros_needed, chunk_size_max);
             }
-            m_frame_rolling.push_back(0.0f, zeros_needed);
+            if (zeros_needed > 0) {
+                m_status.padding_end = true;
+                m_frame_rolling.push_back(0.0f, zeros_needed);
+            }
         }
 
         if (m_frame_rolling.size() == winlen()) {
-            m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-            m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
 
             // Determine how many samples to output for this window
             int nb_samples_to_flush = m_timestep;
@@ -203,11 +214,11 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
                 m_status.last_frame = true;
             }
 
-            proc_win(pout, nb_samples_to_flush);
+            int nb_output_this_step = proc_win(pout, nb_samples_to_flush);
 
             m_input_win_center_idx_next += m_timestep;  // Rdy for next window
-            nb_samples_output += nb_samples_to_flush;
-            m_flush_nb_samples_total -= nb_samples_to_flush;
+            nb_samples_output += nb_output_this_step;
+            m_flush_nb_samples_total -= nb_output_this_step;
 
         } else {
             // Rolling buffer not full yet (zeros limited by chunk_size_max), continue in next call
@@ -215,12 +226,14 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         }
     }
 
+    assert(chunk_size_max>0 || m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: Everything should be flushed, but it didn't eventually.");
+
     if (m_flush_nb_samples_total == 0) {
         // Reached the end of the audio stream
         m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
         // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
         m_status.finished = true;
-        assert(m_flush_nb_samples_total == 0 && "m_flush_nb_samples_total should be 0 when the audio stream is finished");
+        assert(m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: m_flush_nb_samples_total should be 0 when the audio stream is finished");
     }
 
     proc_time_end(nb_samples_output/fs());
@@ -341,17 +354,17 @@ void phaseshift::ola::reset() {
     assert(m_win.size_max() == winlen());
     // phaseshift::win_hamming(&(m_win), winlen);  // Should not be changed, no need to re-build it.
 
+    m_status.reset();
+
     m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
     m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
     m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
 
+    m_status.padding_start = true;
     m_out_sum.push_back(0.0f, winlen());
     m_out_sum_win.push_back(0.0f, winlen());
     m_flush_nb_samples_total = 0;
 
-    m_status.reset();
-    m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-    m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
     m_input_length = 0;
     m_input_win_center_idx = 0;
     m_input_win_center_idx_next = 0;
@@ -420,8 +433,6 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
 
     pab->m_status.first_input_frame = true;
     pab->m_status.last_frame = false;
-    pab->m_status.skipping_samples_at_start = pab->m_first_frame_at_t0_samples_to_skip > 0;
-    pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
     pab->m_status.flushing = false;
     pab->m_input_length = 0;
     pab->m_input_win_center_idx = 0;

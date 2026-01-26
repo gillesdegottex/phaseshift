@@ -25,8 +25,8 @@ namespace phaseshift {
             struct proc_status {
                 bool first_input_frame;
                 bool last_frame;
-                bool fully_covered_by_window;
-                bool skipping_samples_at_start;
+                bool padding_start;
+                bool padding_end;
                 bool flushing;
                 bool finished;
                 phaseshift::globalcursor_t input_win_center_idx = 0;
@@ -34,15 +34,15 @@ namespace phaseshift {
                 inline std::string to_string() const {
                     return "first_input_frame=" + std::to_string(first_input_frame) +
                             " last_frame=" + std::to_string(last_frame) +
-                            " fully_covered_by_window=" + std::to_string(fully_covered_by_window) +
-                            " skipping_samples_at_start=" + std::to_string(skipping_samples_at_start) +
+                            " padding_start=" + std::to_string(padding_start) +
+                            " padding_end=" + std::to_string(padding_end) +
                             " flushing=" + std::to_string(flushing);
                 }
                 inline void reset() {
                     first_input_frame = true;
                     last_frame = false;
-                    fully_covered_by_window = false;
-                    skipping_samples_at_start = true;
+                    padding_start = false;
+                    padding_end = false;
                     flushing = false;
                     finished = false;
                     input_win_center_idx = 0;
@@ -82,7 +82,7 @@ namespace phaseshift {
             phaseshift::globalcursor_t m_output_length = 0;
             phaseshift::globalcursor_t m_output_win_center_idx = 0;
 
-            void proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
+            int proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
 
             // Member variables for real-time processing
             int m_rt_prepad_latency_remaining = -1;
@@ -140,9 +140,9 @@ namespace phaseshift {
                 return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
             }
 
-            //! Returns the number of samples that can be inputted in the next call to process(.)
-            //  WARNING: Note the assymetry with the other flush/fetch fonctions. process_available() is about input samples, whereas return value of process(.) is about output samples.
-            virtual int process_available();
+            //! Returns the number of samples that can be inputted in the next call to process(.), so that the internal output buffer doesn't blow up.
+            //  WARNING: Note the assymetry with the other fonctions below. process_available() is about input samples, whereas all the other ones are about output samples.
+            virtual int process_input_available();
             //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
             virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples that remains to be flushed/outputted.
@@ -150,7 +150,7 @@ namespace phaseshift {
             //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
             //  Returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
             virtual int flush(int chunk_size_max=-1, phaseshift::ringbuffer<float>* pout=nullptr);
-            //! Returns the number of samples that can be fetched in a single call to fetch(.)
+            //! Returns the number of samples ready for output, that can be fetched in a single call to fetch(.)
             inline int fetch_available() const {return m_out.size();}
             //! Return the number of samples actually fetched.
             int fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
@@ -198,8 +198,8 @@ namespace phaseshift {
             protected:
             int m_winlen = -1;
             int m_timestep = -1;
-            int m_extra_samples_to_skip = 0;
-            int m_extra_samples_to_flush = 0;
+            int m_extra_samples_to_skip = 0;  // Skip at start
+            int m_extra_samples_to_flush = 0; // Flush at the end
             // int m_rt_out_size_max = -1;
             int m_output_buffer_size_max = -1;
 
