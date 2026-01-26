@@ -196,8 +196,7 @@ namespace phaseshift {
                 m_failure_status.nb_imperfect_reconstruction = 0;
             }
 
-            inline int stat_rt_nb_failed() const {return m_stat_rt_nb_failed;}
-            inline int stat_rt_out_size_min() const {return m_stat_rt_out_size_min;}
+            inline int stat_realtime_out_size_min() const {return m_stat_realtime_out_size_min;}
 
             PHASESHIFT_PROF(acbench::time_elapsed dbg_proc_frame_time;)
 

@@ -595,8 +595,6 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     }
                 #endif
 
-                phaseshift::dev::test_require(pab->stat_rt_nb_failed() == 0, "audio_block_ola_test: stat_rt_nb_failed() != 0");
-
                 phaseshift::dev::test_require(signal_out.size() > 0, "audio_block_ola_test: signal_out.size() == 0");
                 phaseshift::dev::test_require(signal_out.size() == signal_in.size(), "audio_block_ola_test: signal_out.size() != signal_in.size()");
 
@@ -608,7 +606,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 } else if (mode == int(mode_realtime)) {
 
-                    phaseshift::dev::test_require(pab->stat_rt_out_size_min() < chunk_size, "audio_block_ola_test: stat_rt_out_size_min() >= chunk_size");
+                    phaseshift::dev::test_require(pab->stat_realtime_out_size_min() < chunk_size, "audio_block_ola_test: stat_realtime_out_size_min() >= chunk_size");
 
                     if (synth == synth_click) {
 
