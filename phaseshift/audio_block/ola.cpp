@@ -112,7 +112,6 @@ int phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sample
 }
 
 int phaseshift::ola::process_input_available() {
-
     // That's the expression just for a standard OLA processing.
     int available_out_space = m_out.size_max() - m_out.size();
     int nb_frames_possible = std::floor(available_out_space / m_timestep);
@@ -172,24 +171,17 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
     }
 
     if (!m_status.flushing) {  // First time flushing
-        // Number of output samples that remains to be flushed
-        m_flush_nb_samples_total = m_frame_rolling.size();
-        // We absolutely need to flush at least m_frame_rolling.size()
-        if (m_extra_samples_to_flush > 0) {
-            // So add the extra samples to flush only if positive.
-            // If they are eventually too many samples, daughter classes should handle the case.
-            m_flush_nb_samples_total += m_extra_samples_to_flush;
-        }
+        m_flush_nb_samples_total = flush_available();
         m_status.flushing = true;
     }
 
-    int nb_samples_output = 0;
+    int nb_samples_output_this_flush = 0;
 
     // Process windows until we've output enough or finished
     while (m_flush_nb_samples_total > 0) {
 
         // Check chunk_size limit
-        if (chunk_size_max > 0 && nb_samples_output >= chunk_size_max) {
+        if (chunk_size_max > 0 && nb_samples_output_this_flush >= chunk_size_max) {
             break;
         }
 
@@ -213,12 +205,32 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
                 nb_samples_to_flush = m_flush_nb_samples_total;
                 m_status.last_frame = true;
             }
+            // Also limit by target output length if set
+            if (m_target_output_length > 0) {
+                phaseshift::globalcursor_t remaining_to_target = m_target_output_length - m_output_length;
+                if (remaining_to_target <= 0) {
+                    m_status.finished = true;
+                    m_flush_nb_samples_total = 0;
+                    break;
+                }
+                if (remaining_to_target < nb_samples_to_flush) {
+                    nb_samples_to_flush = remaining_to_target;
+                    m_status.last_frame = true;
+                }
+            }
 
             int nb_output_this_step = proc_win(pout, nb_samples_to_flush);
 
             m_input_win_center_idx_next += m_timestep;  // Rdy for next window
-            nb_samples_output += nb_output_this_step;
-            m_flush_nb_samples_total -= nb_output_this_step;
+            nb_samples_output_this_flush += nb_output_this_step;
+            m_flush_nb_samples_total -= nb_output_this_step;  // If output frames keep being empty, it could run indefinitely.
+
+            // Check if we've reached the target output length
+            if (m_target_output_length > 0 && m_output_length >= m_target_output_length) {
+                m_status.finished = true;
+                m_flush_nb_samples_total = 0;
+                break;
+            }
 
         } else {
             // Rolling buffer not full yet (zeros limited by chunk_size_max), continue in next call
@@ -228,7 +240,7 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
 
     assert(chunk_size_max>0 || m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: Everything should be flushed, but it didn't eventually.");
 
-    if (m_flush_nb_samples_total == 0) {
+    if (m_flush_nb_samples_total <= 0) {  // Use <= as a safenet
         // Reached the end of the audio stream
         m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
         // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
@@ -236,9 +248,9 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         assert(m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: m_flush_nb_samples_total should be 0 when the audio stream is finished");
     }
 
-    proc_time_end(nb_samples_output/fs());
+    proc_time_end(nb_samples_output_this_flush/fs());
 
-    return nb_samples_output;
+    return nb_samples_output_this_flush;
 }
 
 int phaseshift::ola::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max) {
@@ -261,6 +273,11 @@ int phaseshift::ola::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_m
     return chunk_size;
 }
 
+void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+
+    process(in, pout);
+    flush(-1, pout);
+}
 void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size) {
 
     phaseshift::ringbuffer<float> chunk_in;
@@ -284,11 +301,6 @@ void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, p
         flush(chunk_size);
         fetched = fetch(pout, chunk_size);
     }
-}
-void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-
-    process(in, pout);
-    flush(-1, pout);
 }
 
 void phaseshift::ola::process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {

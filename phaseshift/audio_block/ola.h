@@ -75,6 +75,7 @@ namespace phaseshift {
             int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
             int m_flush_nb_samples_total = 0;
+            phaseshift::globalcursor_t m_target_output_length = -1;  // Absolute target output length in samples (-1 = disabled)
 
             phaseshift::globalcursor_t m_input_length = 0;
             phaseshift::globalcursor_t m_input_win_center_idx = 0;
@@ -97,6 +98,12 @@ namespace phaseshift {
             }
             inline int extra_samples_to_flush() const {
                 return m_extra_samples_to_flush;
+            }
+            inline void set_target_output_length(phaseshift::globalcursor_t target) {
+                m_target_output_length = target;
+            }
+            inline phaseshift::globalcursor_t target_output_length() const {
+                return m_target_output_length;
             }
             inline proc_status status() const {
                 return m_status;
@@ -146,7 +153,22 @@ namespace phaseshift {
             //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
             virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples that remains to be flushed/outputted.
-            inline int flush_available() const {return m_flush_nb_samples_total;}
+            inline int flush_available() {
+
+                if (m_status.flushing) {
+                    return m_flush_nb_samples_total;
+                } else {
+                    // Number of output samples that remains to be flushed
+                    m_flush_nb_samples_total = m_frame_rolling.size();
+                    // We absolutely need to flush at least m_frame_rolling.size()
+                    if (m_extra_samples_to_flush > 0) {
+                        // So add the extra samples to flush only if positive.
+                        // If they are eventually too many samples, daughter classes should handle the case.
+                        m_flush_nb_samples_total += m_extra_samples_to_flush;
+                    }
+                }
+                return m_flush_nb_samples_total;
+            }
             //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
             //  Returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
             virtual int flush(int chunk_size_max=-1, phaseshift::ringbuffer<float>* pout=nullptr);
