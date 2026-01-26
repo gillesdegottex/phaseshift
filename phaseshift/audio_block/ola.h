@@ -86,10 +86,8 @@ namespace phaseshift {
             int proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
 
             // Member variables for real-time processing
-            int m_rt_prepad_latency_remaining = -1;
-            int m_stat_rt_nb_post_underruns = 0;
-            int m_stat_rt_nb_failed = 0;
-            int m_stat_rt_out_size_min = std::numeric_limits<int>::max();
+            int m_realttime_prepad_latency_remaining = -1;
+            int m_stat_realtime_out_size_min = std::numeric_limits<int>::max();
 
           protected:
             int m_timestep = -1;
@@ -208,10 +206,10 @@ namespace phaseshift {
 
         namespace dev {
             // This function implements all the possible tests an OLA block should pass:
-            //    - Can process noise, silence, click, saturated signal, sinusoid, harmonics
-            //    - TODO Test speed?
-            //    - (audio_block_ola_builder_test_singlethread() tests for singlethreaded building and processing)
-            //    - (audio_block_builder_test() tests for multithreading)
+            //    * Can process noise, silence, click, saturated signal, sinusoid, harmonics
+            //    * TODO Test speed?
+            //    * (audio_block_ola_builder_test_singlethread() tests for singlethreaded building and processing)
+            //    * (audio_block_builder_test() tests for multithreading)
             enum {option_none, option_test_latency=1};
             void audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold=phaseshift::db2lin(-120.0f), int options=option_test_latency);
         }
@@ -222,7 +220,6 @@ namespace phaseshift {
             int m_timestep = -1;
             int m_extra_samples_to_skip = 0;  // Skip at start
             int m_extra_samples_to_flush = 0; // Flush at the end
-            // int m_rt_out_size_max = -1;
             int m_output_buffer_size_max = -1;
 
             public:
@@ -244,9 +241,6 @@ namespace phaseshift {
             inline void set_extra_samples_to_flush(int nbsamples) {
                 m_extra_samples_to_flush = nbsamples;
             }
-            // inline void set_in_out_same_size_max(int size_max) {
-            //     m_rt_out_size_max = size_max;
-            // }
 
             inline int winlen() const {return m_winlen;}
             inline int timestep() const {return m_timestep;}
@@ -257,10 +251,10 @@ namespace phaseshift {
 
         namespace dev {
             // This function implements all the possible tests an OLA block builder should pass:
-            //    - Handles multithreaded building and processing
-            //    - Handles various fs
-            //    - Handles valid combinations of window lengths and timesteps
-            //    - Handles various chunk sizes
+            //    * Handles multithreaded building and processing
+            //    * Handles various fs
+            //    * Handles valid combinations of window lengths and timesteps
+            //    * Handles various chunk sizes
             void audio_block_ola_builder_test_singlethread();
             void audio_block_ola_builder_test(int nb_threads=4);
         }

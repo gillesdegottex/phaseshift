@@ -311,14 +311,14 @@ void phaseshift::ola::process_realtime(const phaseshift::ringbuffer<float>& in, 
 
     int available = fetch_available();
 
-    assert(m_rt_prepad_latency_remaining >= 0);
-    if (m_rt_prepad_latency_remaining > 0) {
+    assert(m_realttime_prepad_latency_remaining >= 0);
+    if (m_realttime_prepad_latency_remaining > 0) {
         // Pre-pad: pad with zeros up to latency total
-        int zeros_to_add = std::min(m_rt_prepad_latency_remaining, chunk_size_req);
+        int zeros_to_add = std::min(m_realttime_prepad_latency_remaining, chunk_size_req);
         int to_fetch = chunk_size_req - zeros_to_add;
 
         pout->push_back(0.0f, zeros_to_add);
-        m_rt_prepad_latency_remaining -= zeros_to_add;
+        m_realttime_prepad_latency_remaining -= zeros_to_add;
 
         if (to_fetch > 0 && available >= to_fetch) {
             fetch(pout, to_fetch);
@@ -339,7 +339,7 @@ void phaseshift::ola::process_realtime(const phaseshift::ringbuffer<float>& in, 
         }
     }
 
-    m_stat_rt_out_size_min = std::min(m_stat_rt_out_size_min, m_out.size());
+    m_stat_realtime_out_size_min = std::min(m_stat_realtime_out_size_min, m_out.size());
 }    
 
 void phaseshift::ola::reset() {
@@ -383,11 +383,9 @@ void phaseshift::ola::reset() {
     m_output_win_center_idx = 0;
     m_output_length = 0;
 
-    m_rt_prepad_latency_remaining = latency();
+    m_realttime_prepad_latency_remaining = latency();
 
-    m_stat_rt_nb_failed = 0;
-    m_stat_rt_nb_post_underruns = 0;
-    m_stat_rt_out_size_min = std::numeric_limits<int>::max();
+    m_stat_realtime_out_size_min = std::numeric_limits<int>::max();
 
     failure_status_reset();
 }
@@ -452,17 +450,6 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_output_length = 0;
     pab->m_output_win_center_idx = 0;
     pab->m_flush_nb_samples_total = 0;
-
-    // // Only usefull when using proc_same_size(.)
-    // pab->m_rt_out_size_max = m_rt_out_size_max;
-    // pab->m_rt_out.resize_allocation(2*std::max<int>(m_winlen+m_timestep, m_rt_out_size_max));
-    // pab->m_rt_out.clear();
-    // // This should NOT be dependent on m_rt_out_size_max.
-    // // Otherwise the latency will be dependent on it.
-    // // TODO Remaining optimisation: How to minimize test_m_rt_out_size_min using m_winlen and/or m_timestep, but without knowing m_rt_out_size_max? ... is it actually possible?
-    // pab->m_rt_out.push_back(0.0f, m_winlen);
-    pab->m_stat_rt_nb_failed = 0;
-    pab->m_stat_rt_nb_post_underruns = 0;
 
     pab->phaseshift::ola::reset();
 
