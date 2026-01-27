@@ -51,8 +51,22 @@ namespace phaseshift {
             };
 
             struct failure_status {
+                long int nb_output_buffer_overflows = 0;  // Number of times the output buffer was full and samples were lost
                 long int nb_imperfect_reconstruction = 0;  // Number of samples with insufficient window coverage
+                failure_status() {
+                    reset();
+                }
+                inline void reset() {
+                    nb_output_buffer_overflows = 0;
+                    nb_imperfect_reconstruction = 0;
+                }
+                inline std::string to_json() const {
+                    return "{\"nb_output_buffer_overflows\":" + std::to_string(nb_output_buffer_overflows) +
+                           ",\"nb_imperfect_reconstruction\":" + std::to_string(nb_imperfect_reconstruction) + "}";
+                }
             } m_failure_status;
+
+            inline const failure_status& get_failure_status() const { return m_failure_status; }
 
           protected:
             phaseshift::vector<float> m_win;
@@ -131,12 +145,15 @@ namespace phaseshift {
             }
 
             //! Returns the minimum number of samples, bigger than zero, that can be outputted in one call to proc(.)
-            inline int min_output_size() const {
+            inline int min_output_chunk_size() const {
                 return m_timestep;
             }
             //! For a given input chunk size, returns the maximum number of samples that can be outputted in one call to proc(.)
-            inline int max_output_size(int input_chunk_size) const {
-                return m_timestep * std::ceil(static_cast<float>(input_chunk_size)/m_timestep);
+            //  In the worst case, the rolling buffer has winlen-1 samples, so 1 input sample triggers a window (outputs timestep).
+            //  After that, each additional timestep input samples triggers another window.
+            //  Thus max output = timestep * ceil(input_chunk_size / timestep).
+            inline int max_output_chunk_size(int input_chunk_size) const {
+                return m_timestep * static_cast<int>(std::ceil(static_cast<float>(input_chunk_size)/m_timestep));
             }
 
             //! Returns the number of samples that can be inputted in the next call to process(.), so that the internal output buffer doesn't blow up.
@@ -190,10 +207,6 @@ namespace phaseshift {
 
             virtual void reset();
 
-            inline void failure_status_reset() {
-                m_failure_status.nb_imperfect_reconstruction = 0;
-            }
-
             inline int stat_realtime_out_size_min() const {return m_stat_realtime_out_size_min;}
 
             PHASESHIFT_PROF(acbench::time_elapsed dbg_proc_frame_time;)
@@ -217,7 +230,7 @@ namespace phaseshift {
             int m_timestep = -1;
             int m_extra_samples_to_skip = 0;  // Skip at start
             int m_extra_samples_to_flush = 0; // Flush at the end
-            int m_output_buffer_size_max = -1;
+            int m_max_input_chunk_size = -1;
 
             public:
             inline void set_winlen(int winlen) {
@@ -228,9 +241,11 @@ namespace phaseshift {
                 assert(timestep > 0);
                 m_timestep = timestep;
             }
-            inline void set_output_buffer_size_max(int out_size_max) {
-                assert(out_size_max > 0);
-                m_output_buffer_size_max = out_size_max;
+            //! Set the max input chunk size to properly size the internal output buffer.
+            //  The internal buffer will be sized to hold max_output_chunk_size(max_input_chunk_size) samples.
+            inline void set_max_input_chunk_size(int max_input_chunk_size) {
+                assert(max_input_chunk_size > 0);
+                m_max_input_chunk_size = max_input_chunk_size;
             }
             inline void set_extra_samples_to_skip(int nbsamples) {
                 m_extra_samples_to_skip = nbsamples;

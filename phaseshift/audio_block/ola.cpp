@@ -96,9 +96,15 @@ int phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sample
             }
         #endif
 
-        assert(pout->size()+nb_samples_to_output_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
 
-        pout->push_back(m_out_sum, 0, nb_samples_to_output_remains);
+        if (pout->size()+nb_samples_to_output_remains > pout->size_max()) {
+            m_failure_status.nb_output_buffer_overflows++;
+            // std::cerr << "phaseshift::ola::proc_win: There is not enough space in the output buffer. Current size: " << pout->size() << "/" << pout->size_max() << ", trying to add: " << nb_samples_to_output_remains << ". All samples of this frame are lost." << std::endl;
+            assert(pout->size()+nb_samples_to_output_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
+        } else {
+            pout->push_back(m_out_sum, 0, nb_samples_to_output_remains);
+        }
+
         m_output_length += nb_samples_to_output_remains;
         m_out_sum.pop_front(nb_samples_to_output_remains);
         m_out_sum_win.pop_front(nb_samples_to_output_remains);
@@ -367,6 +373,7 @@ void phaseshift::ola::reset() {
     // phaseshift::win_hamming(&(m_win), winlen);  // Should not be changed, no need to re-build it.
 
     m_status.reset();
+    phaseshift::ola::m_failure_status.reset();
 
     m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
     m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
@@ -387,8 +394,6 @@ void phaseshift::ola::reset() {
     m_realttime_prepad_latency_remaining = latency();
 
     m_stat_realtime_out_size_min = std::numeric_limits<int>::max();
-
-    failure_status_reset();
 }
 
 
@@ -424,7 +429,11 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_out_sum_win.resize_allocation(m_winlen);
     pab->m_out_sum_win.clear();
 
-    pab->m_out.resize_allocation(std::max(m_output_buffer_size_max, m_winlen+m_timestep));
+    int output_buffer_size = m_winlen + m_timestep;  // minimum reasonable size
+    if (m_max_input_chunk_size > 0) {
+        output_buffer_size = std::max(output_buffer_size, pab->max_output_chunk_size(m_max_input_chunk_size));
+    }
+    pab->m_out.resize_allocation(output_buffer_size);
     pab->m_out.clear();
 
     pab->m_win.resize_allocation(m_winlen);
@@ -655,7 +664,7 @@ void phaseshift::dev::audio_block_ola_builder_test_singlethread() {
         pbuilder->set_fs(fs);
         pbuilder->set_timestep(timestep);
         pbuilder->set_winlen(winlen);
-        pbuilder->set_output_buffer_size_max(chunk_size);
+        pbuilder->set_max_input_chunk_size(chunk_size);
 
         auto pab = pbuilder->build();
 
