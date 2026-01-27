@@ -48,7 +48,7 @@ int phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sample
         for (int n=0; n<static_cast<int>(m_frame_output.size()); ++n) {
             assert(!std::isnan(m_frame_output[n]));
             assert(!std::isinf(m_frame_output[n]));
-            assert(std::abs(m_frame_output[n]) < 1000.0f);
+            assert(std::abs(m_frame_output[n]) < 1000.0f && "The output signal is suspiciously large.");
         }
     #endif
 

@@ -134,9 +134,9 @@ namespace phaseshift {
             inline int min_output_size() const {
                 return m_timestep;
             }
-            //! For a given chunk size, returns the maximum number of samples that can be outputted in one call to proc(.)
-            inline int max_output_size(int chunk_size) const {  // TODO TODO TODO Still useful?
-                return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
+            //! For a given input chunk size, returns the maximum number of samples that can be outputted in one call to proc(.)
+            inline int max_output_size(int input_chunk_size) const {
+                return m_timestep * std::ceil(static_cast<float>(input_chunk_size)/m_timestep);
             }
 
             //! Returns the number of samples that can be inputted in the next call to process(.), so that the internal output buffer doesn't blow up.
