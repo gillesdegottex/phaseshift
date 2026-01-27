@@ -72,7 +72,7 @@ namespace phaseshift {
             phaseshift::ringbuffer<float> m_out;
 
             int m_extra_samples_to_skip = 0;
-            int m_first_frame_at_t0_samples_to_skip = 0;
+            int m_first_frame_at_t0_samples_to_skip = 0;  // TODO TODO TODO Clean this bcs it is not used only as first_frame_at_t0
             int m_extra_samples_to_flush = 0;
             int m_flush_nb_samples_total = 0;
             phaseshift::globalcursor_t m_target_output_length = -1;  // Absolute target output length in samples (-1 = disabled)
@@ -91,19 +91,13 @@ namespace phaseshift {
 
           protected:
             int m_timestep = -1;
-            inline void set_extra_samples_to_flush(int nbsamples) {
-                m_extra_samples_to_flush = nbsamples;
-            }
-            inline int extra_samples_to_flush() const {
-                return m_extra_samples_to_flush;
-            }
             inline void set_target_output_length(phaseshift::globalcursor_t target) {
                 m_target_output_length = target;
             }
             inline phaseshift::globalcursor_t target_output_length() const {
                 return m_target_output_length;
             }
-            inline proc_status status() const {
+            inline const proc_status& status() const {
                 return m_status;
             }
 
@@ -141,7 +135,7 @@ namespace phaseshift {
                 return m_timestep;
             }
             //! For a given chunk size, returns the maximum number of samples that can be outputted in one call to proc(.)
-            inline int max_output_size(int chunk_size) const {
+            inline int max_output_size(int chunk_size) const {  // TODO TODO TODO Still useful?
                 return m_timestep * std::ceil(static_cast<float>(chunk_size)/m_timestep);
             }
 
@@ -149,6 +143,10 @@ namespace phaseshift {
             //  WARNING: Note the assymetry with the other fonctions below. process_available() is about input samples, whereas all the other ones are about output samples.
             virtual int process_input_available();
             //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
+            // TODO TODO TODO Return values shouldn't be about input values?
+            //                Might be just better that process(.) limits the input when there is not enough space in the internal output buffer.
+            //                Instead of providing process_input_available() and let it blow if not respected.
+            // TODO TODO TODO During time scaling, it also depends on the available space in the frame buffer...
             virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples that remains to be flushed/outputted.
             inline int flush_available() {

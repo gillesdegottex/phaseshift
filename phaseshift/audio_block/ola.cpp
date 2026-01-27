@@ -382,6 +382,7 @@ void phaseshift::ola::reset() {
     m_input_win_center_idx_next = 0;
     m_output_win_center_idx = 0;
     m_output_length = 0;
+    m_target_output_length = -1;
 
     m_realttime_prepad_latency_remaining = latency();
 
@@ -423,19 +424,14 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_out_sum_win.resize_allocation(m_winlen);
     pab->m_out_sum_win.clear();
 
-    int output_buffer_size_max = m_output_buffer_size_max;
-    output_buffer_size_max = std::max(output_buffer_size_max, m_winlen+m_timestep);  // TODO Could be smaller?
-    pab->m_out.resize_allocation(output_buffer_size_max);
+    pab->m_out.resize_allocation(std::max(m_output_buffer_size_max, m_winlen+m_timestep));
     pab->m_out.clear();
 
     pab->m_win.resize_allocation(m_winlen);
     // Default to Hamming window, to avoid amplitude modulation by winsum normalisation, and thus gives perfect reconstruction
     phaseshift::win_hamming(&(pab->m_win), m_winlen);
 
-    pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
-    pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);
     pab->m_extra_samples_to_skip = m_extra_samples_to_skip;
-    pab->m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
     pab->m_extra_samples_to_flush = m_extra_samples_to_flush;
 
     pab->m_out_sum.push_back(0.0f, m_winlen);
