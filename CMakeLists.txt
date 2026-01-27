@@ -314,6 +314,7 @@ set_target_properties(phaseshift
     set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
     include(CTest)
 
+    # TODO Tests should run using tinywavfile, not libsndfile
     if ((NOT PHASESHIFT_SUPPORT_SNDFILE_LOCAL) AND (NOT PHASESHIFT_SUPPORT_SNDFILE))
       message(FATAL_ERROR "When activating tests (PHASESHIFT_DEV_TESTS), you need to either activate PHASESHIFT_SUPPORT_SNDFILE (use system libsndfile library) or PHASESHIFT_SUPPORT_SNDFILE_LOCAL (rebuild libsndfile in the build directory).")
     endif()

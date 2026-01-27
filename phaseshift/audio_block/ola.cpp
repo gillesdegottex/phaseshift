@@ -7,9 +7,8 @@
 
 #include <phaseshift/utils.h>
 #include <phaseshift/audio_block/ola.h>
+#include <phaseshift/audio_block/tinywavfile.h>
 #include <phaseshift/sigproc/sigproc.h>
-
-// #include <phaseshift/audio_block/sndfile.h>  // For debug (see #if 0 below)
 
 void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status) {
     (void)status;
@@ -32,7 +31,8 @@ phaseshift::ola::ola() {
 phaseshift::ola::~ola() {
 }
 
-void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output) {
+int phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output) {
+    assert(pout!=nullptr && "phaseshift::ola::proc_win: The output buffer is nullptr.");
 
     m_frame_input = m_frame_rolling;
     assert(m_frame_input.size() > 0 && "phaseshift::ola::proc: The input frame is empty.");
@@ -48,14 +48,16 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
         for (int n=0; n<static_cast<int>(m_frame_output.size()); ++n) {
             assert(!std::isnan(m_frame_output[n]));
             assert(!std::isinf(m_frame_output[n]));
-            assert(std::abs(m_frame_output[n]) < 1000.0f);
+            assert(std::abs(m_frame_output[n]) < 1000.0f && "The output signal is suspiciously large.");
         }
     #endif
 
     m_status.first_input_frame = false;
     m_frame_rolling.pop_front(m_timestep);
 
-    if (m_frame_output.size() > 0) {
+    if (m_frame_output.size() == 0) {
+        return 0;
+    } else {
 
         // Add the content of the window and its shape
         m_out_sum += m_frame_output;
@@ -70,6 +72,8 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
             m_out_sum_win.pop_front(nb_topop);
             nb_samples_to_output_remains -= nb_topop;
             m_first_frame_at_t0_samples_to_skip -= nb_topop;
+        } else {
+            m_status.padding_start = false;
         }
 
         // Flush the samples that can be flushed
@@ -94,7 +98,6 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
 
         assert(pout->size()+nb_samples_to_output_remains <= pout->size_max() && "phaseshift::ola::proc_win: There is not enough space in the output buffer");
 
-        assert((m_output_added_max==-1) || (nb_samples_to_output_remains <= m_output_added_max));
         pout->push_back(m_out_sum, 0, nb_samples_to_output_remains);
         m_output_length += nb_samples_to_output_remains;
         m_out_sum.pop_front(nb_samples_to_output_remains);
@@ -103,14 +106,34 @@ void phaseshift::ola::proc_win(phaseshift::ringbuffer<float>* pout, int nb_sampl
         // Prepare for next one
         m_out_sum.push_back(0.0f, nb_samples_to_output);
         m_out_sum_win.push_back(0.0f, nb_samples_to_output);
+
+        return nb_samples_to_output;
     }
 }
 
-void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+int phaseshift::ola::process_input_available() {
+    // That's the expression just for a standard OLA processing.
+    int available_out_space = m_out.size_max() - m_out.size();
+    int nb_frames_possible = std::floor(available_out_space / m_timestep);
+    return nb_frames_possible * m_timestep;
+}
+
+int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
     proc_time_start();
+
+    // assert(!m_status.finished && "phaseshift::ola::process: The audio stream is already finished, there should be any more calls to process(.) nor flush(.)");
+    if (m_status.finished) {
+        // TODO Gentle warning?
+        return 0;
+    }
+
+    if (pout == nullptr) {
+        pout = &m_out;
+    }
 
     m_input_length += in.size();
 
+    int nb_output = 0;
     int in_n = 0;
     while (in_n < in.size()) {
 
@@ -120,131 +143,204 @@ void phaseshift::ola::proc(const phaseshift::ringbuffer<float>& in, phaseshift::
         in_n += nb_samples_for_winlen;
 
         if (m_frame_rolling.size() == winlen()) {
-            m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-            m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
 
-            proc_win(pout, m_timestep);
+            int nb_output_this_step = proc_win(pout, m_timestep);
+            nb_output += nb_output_this_step;
 
             m_input_win_center_idx_next += m_timestep;  // Rdy for next window
         }
     }
 
     proc_time_end(in.size()/fs());
+
+    return nb_output;
 }
 
-void phaseshift::ola::flush(phaseshift::ringbuffer<float>* pout) {
+int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* pout) {
+    proc_time_start();
 
-    if (!m_flushing) {  // First time flushing
-        // Number of user input samples that remains to be processed
-        m_nb_samples_to_flush_total = m_frame_rolling.size() + m_extra_samples_to_flush;
+    // assert(!m_status.finished && "phaseshift::ola::flush: The audio stream is already finished, there should be any more calls to process(.) nor flush(.)");
+    if (m_status.finished) {
+        // TODO Gentle warning?
+        return 0;
     }
-    m_flushing = true;
-    m_status.flushing = true;
 
-    // assert(m_output_added_max >= winlen());
-
-    // Avoid blowing up the output buffer in case of flushing
-    int nb_samples_to_flush_total = m_nb_samples_to_flush_total;
-    if (m_output_added_max > 0) {
-        nb_samples_to_flush_total = std::min(nb_samples_to_flush_total, m_output_added_max);
+    // If no output buffer is provided, use the internal output buffer, and expect the use of fetch(.) to empty it.
+    if (pout == nullptr) {
+        pout = &m_out;
     }
-    if (pout->size() + nb_samples_to_flush_total > pout->size_max()) {
-        nb_samples_to_flush_total = pout->size_max() - pout->size();
-        assert(false && "phaseshift::ola::flush: There is not enough space in the output buffer.");
+
+    if (!m_status.flushing) {  // First time flushing
+        m_flush_nb_samples_total = flush_available();
+        m_status.flushing = true;
     }
-    
-    // Bcs proc(.) will be called before, it will always be smaller than m_winlen
-    assert((m_frame_rolling.size() < winlen()) && "phaseshift::ola::flush: There are more samples in the internal buffer than winlen. Have you called proc(.) at least once before calling flush(.)?");
 
-    // We know here that there are not enough samples to fill a full window
-    // The chosen strategy in the following is to process extra uncomplete windows, as long as the number of samples to flush is smaller than the timestep.
-    // This implies also to flush timestep samples, except for the last iteration, where is less or equal than timestep.
-    // TODO(GD) It should go one timestep beyond the last sample of the input signal. That would ensure always good window normalisation.
-    int nb_samples_to_flush = m_timestep;
-    do {
-        // Add trailing zeros to fill a full window
-        m_frame_rolling.push_back(0.0f, winlen() - m_frame_rolling.size());
+    int nb_samples_output_this_flush = 0;
 
-        // Flush timestep samples, except for the last iteration
-        if (nb_samples_to_flush_total <= m_timestep) {
-            nb_samples_to_flush = nb_samples_to_flush_total;
-            m_status.last_frame = true;
+    // Process windows until we've output enough or finished
+    while (m_flush_nb_samples_total > 0) {
+
+        // Check chunk_size limit
+        if (chunk_size_max > 0 && nb_samples_output_this_flush >= chunk_size_max) {
+            break;
         }
 
-        m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-        m_status.fully_covered_by_window = false;
-        proc_win(pout, nb_samples_to_flush);
-
-        // Do not go past the end of the input signal
-        // TODO(GD) Make it independent of global index
-        if (m_input_win_center_idx + m_timestep < m_input_length) {
-            m_input_win_center_idx_next += m_timestep;  // ... make it rdy for next window
-        }
-
-        nb_samples_to_flush_total -= nb_samples_to_flush;
-        m_nb_samples_to_flush_total -= nb_samples_to_flush;
-        assert(nb_samples_to_flush_total >= 0);
-
-    } while (nb_samples_to_flush_total > 0);
-
-    if (m_nb_samples_to_flush_total == 0) {
-        // Reached the end of the stream
-        m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
-        // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
-    }
-}
-
-
-void phaseshift::ola::proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-
-    int out_size_requested = in.size();
-
-    proc(in, &m_rt_out);
-
-    if (m_rt_out.size() < out_size_requested) {
-
-        if (!m_rt_received_samples) {
-            // Beginning of the stream, there is no yet enough data processed to get enough input.
-            // So pre-fill all of the requested output with zeros.
-            
-            // We don't know how many zeros are necessary to avoid ever coming back here.
-            // TODO It should be possible to calculate it based on the winlen and the timestep.
-
-            pout->push_back(0.0f, out_size_requested);
-
-        } else {
-            // We are at the end of the stream.
-
-            // So first flush any internal buffers
-            flush(&m_rt_out);
-            // At that point m_rt_out.size() could be larger than out_size_requested.
-            int to_push = std::min<int>(out_size_requested, m_rt_out.size());
-            pout->push_back(m_rt_out, 0, to_push);  // So push only what is requested.
-            m_rt_out.pop_front(to_push);            // and pop the same amount.
-
-            // And post-fill with as many zeros as necessary.
-            int nbzeros = out_size_requested - to_push;
-            if (nbzeros > 0) {
-                pout->push_back(0.0f, nbzeros);
-                // A real post-underrun only happens when we need to add zeros.
-                // I.e. if the flush(.) allowed to recover from this underruns, it is not counted as one.
-                m_stat_rt_nb_post_underruns++;
+        // Fill rolling buffer to winlen with zeros (limited by chunk_size_max if set)
+        int zeros_needed = winlen() - m_frame_rolling.size();
+        if (zeros_needed > 0) {
+            if (chunk_size_max > 0) {  // It can be -1 for disable
+                zeros_needed = std::min(zeros_needed, chunk_size_max);
+            }
+            if (zeros_needed > 0) {
+                m_status.padding_end = true;
+                m_frame_rolling.push_back(0.0f, zeros_needed);
             }
         }
 
-    } else {
-        // Normal case
-        pout->push_back(m_rt_out, 0, out_size_requested);
-        m_rt_out.pop_front(out_size_requested);
-        m_rt_received_samples = true;
+        if (m_frame_rolling.size() == winlen()) {
 
-        if (m_stat_rt_nb_post_underruns > 0) {
-            m_stat_rt_nb_failed++;  // This should never happen and is tested for.
+            // Determine how many samples to output for this window
+            int nb_samples_to_flush = m_timestep;
+            if (m_flush_nb_samples_total <= m_timestep) {
+                nb_samples_to_flush = m_flush_nb_samples_total;
+                m_status.last_frame = true;
+            }
+            // Also limit by target output length if set
+            if (m_target_output_length > 0) {
+                phaseshift::globalcursor_t remaining_to_target = m_target_output_length - m_output_length;
+                if (remaining_to_target <= 0) {
+                    m_status.finished = true;
+                    m_flush_nb_samples_total = 0;
+                    break;
+                }
+                if (remaining_to_target < nb_samples_to_flush) {
+                    nb_samples_to_flush = remaining_to_target;
+                    m_status.last_frame = true;
+                }
+            }
+
+            int nb_output_this_step = proc_win(pout, nb_samples_to_flush);
+
+            m_input_win_center_idx_next += m_timestep;  // Rdy for next window
+            nb_samples_output_this_flush += nb_output_this_step;
+            m_flush_nb_samples_total -= nb_output_this_step;  // If output frames keep being empty, it could run indefinitely.
+
+            // Check if we've reached the target output length
+            if (m_target_output_length > 0 && m_output_length >= m_target_output_length) {
+                m_status.finished = true;
+                m_flush_nb_samples_total = 0;
+                break;
+            }
+
+        } else {
+            // Rolling buffer not full yet (zeros limited by chunk_size_max), continue in next call
+            break;
         }
     }
 
-    m_stat_rt_out_size_min = std::min(m_stat_rt_out_size_min, m_rt_out.size());
+    assert(chunk_size_max>0 || m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: Everything should be flushed, but it didn't eventually.");
+
+    if (m_flush_nb_samples_total <= 0) {  // Use <= as a safenet
+        // Reached the end of the audio stream
+        m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
+        // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
+        m_status.finished = true;
+        assert(m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: m_flush_nb_samples_total should be 0 when the audio stream is finished");
+    }
+
+    proc_time_end(nb_samples_output_this_flush/fs());
+
+    return nb_samples_output_this_flush;
 }
+
+int phaseshift::ola::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max) {
+
+    if (m_out.size() == 0) {
+        return 0;
+    }
+
+    int chunk_size = m_out.size();
+    // chunk_size = std::min<int>({chunk_size, pout->size_max() - pout->size()});  // Missleading, since it can output just enough to fill the output space, without showing how much the audio block does want to output
+    if (chunk_size_max > 0) {
+        chunk_size = std::min<int>(chunk_size, chunk_size_max);
+    }
+
+    assert(pout->size()+chunk_size <= pout->size_max() && "phaseshift::ola::fetch: There is not enough space in the output buffer");
+
+    pout->push_back(m_out, 0, chunk_size);
+    m_out.pop_front(chunk_size);
+
+    return chunk_size;
+}
+
+void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+
+    process(in, pout);
+    flush(-1, pout);
+}
+void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout, int chunk_size) {
+
+    phaseshift::ringbuffer<float> chunk_in;
+    chunk_in.resize_allocation(chunk_size);
+
+    int in_n = 0;
+    while (in_n < in.size()) {
+        int chunk_to_process = std::min<int>(chunk_size, in.size() - in_n);
+        chunk_in.clear();
+        chunk_in.push_back(in, in_n, chunk_to_process);
+        in_n += chunk_to_process;
+
+        process(chunk_in);
+
+        while (fetch(pout) > 0) {}
+    }
+
+    // Flush remaining data in chunks
+    int fetched = 1;
+    while (fetched > 0) {
+        flush(chunk_size);
+        fetched = fetch(pout, chunk_size);
+    }
+}
+
+void phaseshift::ola::process_realtime(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
+
+    int chunk_size_req = in.size();
+
+    process(in);
+
+    int available = fetch_available();
+
+    assert(m_realttime_prepad_latency_remaining >= 0);
+    if (m_realttime_prepad_latency_remaining > 0) {
+        // Pre-pad: pad with zeros up to latency total
+        int zeros_to_add = std::min(m_realttime_prepad_latency_remaining, chunk_size_req);
+        int to_fetch = chunk_size_req - zeros_to_add;
+
+        pout->push_back(0.0f, zeros_to_add);
+        m_realttime_prepad_latency_remaining -= zeros_to_add;
+
+        if (to_fetch > 0 && available >= to_fetch) {
+            fetch(pout, to_fetch);
+        }
+
+    } else if (available >= chunk_size_req) {
+        // Normal fetch
+        fetch(pout, chunk_size_req);
+
+    } else {
+        // Post-pad: fetch what's available, pad the rest
+        int to_fetch = std::min(chunk_size_req, available);
+        fetch(pout, to_fetch);
+
+        int zeros_to_add = chunk_size_req - to_fetch;
+        if (zeros_to_add > 0) {
+            pout->push_back(0.0f, zeros_to_add);
+        }
+    }
+
+    m_stat_realtime_out_size_min = std::min(m_stat_realtime_out_size_min, m_out.size());
+}    
 
 void phaseshift::ola::reset() {
     phaseshift::audio_block::reset();
@@ -265,36 +361,32 @@ void phaseshift::ola::reset() {
     assert(m_out_sum_win.size_max() == winlen());
     m_out_sum_win.clear();
 
+    m_out.clear();
+
     assert(m_win.size_max() == winlen());
     // phaseshift::win_hamming(&(m_win), winlen);  // Should not be changed, no need to re-build it.
+
+    m_status.reset();
 
     m_first_frame_at_t0_samples_to_skip = (winlen()-1)/2;
     m_frame_rolling.push_back(0.0f, m_first_frame_at_t0_samples_to_skip);
     m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
 
+    m_status.padding_start = true;
     m_out_sum.push_back(0.0f, winlen());
     m_out_sum_win.push_back(0.0f, winlen());
-    m_flushing = false;
-    m_nb_samples_to_flush_total = 0;
+    m_flush_nb_samples_total = 0;
 
-    m_status.first_input_frame = true;
-    m_status.last_frame = false;
-    m_status.skipping_samples_at_start = m_first_frame_at_t0_samples_to_skip > 0;
-    m_status.fully_covered_by_window = m_first_frame_at_t0_samples_to_skip == 0;
-    m_status.flushing = false;
     m_input_length = 0;
     m_input_win_center_idx = 0;
     m_input_win_center_idx_next = 0;
     m_output_win_center_idx = 0;
     m_output_length = 0;
+    m_target_output_length = -1;
 
-    assert(m_rt_out.size_max() == 2*std::max<int>(winlen()+m_timestep, m_rt_out_size_max));
-    m_rt_out.clear();
-    m_rt_out.push_back(0.0f, winlen());
-    m_rt_received_samples = false;
-    m_stat_rt_nb_failed = 0;
-    m_stat_rt_nb_post_underruns = 0;
-    m_stat_rt_out_size_min = phaseshift::int32::max();
+    m_realttime_prepad_latency_remaining = latency();
+
+    m_stat_realtime_out_size_min = std::numeric_limits<int>::max();
 
     failure_status_reset();
 }
@@ -332,14 +424,14 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     pab->m_out_sum_win.resize_allocation(m_winlen);
     pab->m_out_sum_win.clear();
 
+    pab->m_out.resize_allocation(std::max(m_output_buffer_size_max, m_winlen+m_timestep));
+    pab->m_out.clear();
+
     pab->m_win.resize_allocation(m_winlen);
     // Default to Hamming window, to avoid amplitude modulation by winsum normalisation, and thus gives perfect reconstruction
     phaseshift::win_hamming(&(pab->m_win), m_winlen);
 
-    pab->m_first_frame_at_t0_samples_to_skip = (m_winlen-1)/2;
-    pab->m_frame_rolling.push_back(0.0f, pab->m_first_frame_at_t0_samples_to_skip);
     pab->m_extra_samples_to_skip = m_extra_samples_to_skip;
-    pab->m_first_frame_at_t0_samples_to_skip += m_extra_samples_to_skip;
     pab->m_extra_samples_to_flush = m_extra_samples_to_flush;
 
     pab->m_out_sum.push_back(0.0f, m_winlen);
@@ -347,29 +439,15 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
 
     pab->m_status.first_input_frame = true;
     pab->m_status.last_frame = false;
-    pab->m_status.skipping_samples_at_start = pab->m_first_frame_at_t0_samples_to_skip > 0;
-    pab->m_status.fully_covered_by_window = pab->m_first_frame_at_t0_samples_to_skip == 0;
     pab->m_status.flushing = false;
     pab->m_input_length = 0;
     pab->m_input_win_center_idx = 0;
     pab->m_input_win_center_idx_next = 0;
     pab->m_output_length = 0;
     pab->m_output_win_center_idx = 0;
-    pab->m_flushing = false;
-    pab->m_nb_samples_to_flush_total = 0;
+    pab->m_flush_nb_samples_total = 0;
 
-    // Only usefull when using proc_same_size(.)
-    pab->m_rt_out_size_max = m_rt_out_size_max;
-    pab->m_rt_out.resize_allocation(2*std::max<int>(m_winlen+m_timestep, m_rt_out_size_max));
-    pab->m_rt_out.clear();
-    // This should NOT be dependent on m_rt_out_size_max.
-    // Otherwise the latency will be dependent on it.
-    // TODO Remaining optimisation: How to minimize test_m_rt_out_size_min using m_winlen and/or m_timestep, but without knowing m_rt_out_size_max? ... is it actually possible?
-    pab->m_rt_out.push_back(0.0f, m_winlen);
-    pab->m_rt_received_samples = false;
-    pab->m_stat_rt_nb_failed = 0;
-    pab->m_stat_rt_nb_post_underruns = 0;
-    pab->m_stat_rt_out_size_min = phaseshift::int32::max();
+    pab->phaseshift::ola::reset();
 
     build_time_end();
 
@@ -412,24 +490,24 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 signal_in.resize_allocation(fs * duration_s);
                 signal_in.clear();
                 if (synth == synth_noise) {
-                    phaseshift::push_back_noise_normal(signal_in, signal_in.capacity(), gen, 0.0f, 0.2f, 0.99f);
+                    phaseshift::push_back_noise_normal(signal_in, signal_in.size_max(), gen, 0.0f, 0.2f, 0.99f);
                 } else if (synth == synth_silence) {
-                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in.push_back(0.0f, signal_in.size_max());
                     signal_in[0] = 0.0f;
                 } else if (synth == synth_click) {
-                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in.push_back(0.0f, signal_in.size_max());
                     signal_in[0] = 0.9f;
                 } else if (synth == synth_saturated) {
-                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in.push_back(0.0f, signal_in.size_max());
                     signal_in[0] = 1.0f;
                 } else if (synth == synth_sin) {
-                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in.push_back(0.0f, signal_in.size_max());
                     float phase = 2.0f * M_PI * phase_dist(gen);
                     for (int n = 0; n < signal_in.size(); ++n) {
                         signal_in[n] = 0.9f * std::sin(2.0f * M_PI * 440.0f * n / fs + phase);
                     }
                 } else if (synth == synth_harmonics) {
-                    signal_in.push_back(0.0f, signal_in.capacity());
+                    signal_in.push_back(0.0f, signal_in.size_max());
                     float f0 = 110.0f;
                     float nb_harmonics = int((0.5*fs-f0)/f0);
                     float amplitude = 0.9f/nb_harmonics;
@@ -442,81 +520,81 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 }
 
                 phaseshift::ringbuffer<float> signal_out;
-                signal_out.resize_allocation(signal_in.capacity());
+                signal_out.resize_allocation(signal_in.size_max());
+                signal_out.clear();
 
                 // Initialize -----------------------------------------
 
-                phaseshift::globalcursor_t nb_samples_total = 0;
-
                 if (mode == int(mode_offline)) {
 
-                    signal_out.clear();
-                    pab->proc(signal_in, &signal_out);
-                    pab->flush(&signal_out);
-                    nb_samples_total = signal_out.size();
+                    pab->process_offline(signal_in, &signal_out);
+                    // pab->process_offline(signal_in, &signal_out, chunk_size);
 
                 } else if (mode == int(mode_streaming)) {
 
-                    phaseshift::ringbuffer<float> chunk_in, chunk_out;
+                    phaseshift::ringbuffer<float> chunk_in;
                     chunk_in.resize_allocation(chunk_size);
-                    chunk_out.resize_allocation(pab->max_output_size(chunk_size));
 
-                    while (nb_samples_total < signal_in.size()) {
+                    // Single loop that simulate a callback
+                    while (!pab->finished()) {
 
-                        chunk_in.clear();
-                        int chunk_size_to_push = std::min<int>(chunk_size, signal_in.size() - nb_samples_total);
-                        chunk_in.push_back(signal_in, nb_samples_total, chunk_size_to_push);
-                        nb_samples_total += chunk_size_to_push;
+                        if (pab->input_length() < signal_in.size()) {
+                            // Feed input data
+                            int chunk_to_process = std::min<int>(chunk_size, signal_in.size() - pab->input_length());
+                            chunk_in.clear();
+                            chunk_in.push_back(signal_in, pab->input_length(), chunk_to_process);
 
-                        chunk_out.clear();
-                        pab->proc(chunk_in, &chunk_out);
-            
-                        signal_out.push_back(chunk_out);
+                            pab->process(chunk_in);
+
+                        } else {
+                            pab->flush(chunk_size);
+                        }
+
+                        while (pab->fetch_available() > 0) {
+                            pab->fetch(&signal_out, chunk_size);
+                        }
                     }
-                    pab->flush(&signal_out);
-
+                    
                 } else if (mode == int(mode_realtime)) {
 
-                    phaseshift::ringbuffer<float> chunk_in, chunk_out;
+                    phaseshift::ringbuffer<float> chunk_in;
                     chunk_in.resize_allocation(chunk_size);
-                    chunk_out.resize_allocation(chunk_size);
 
-                    while (nb_samples_total < signal_in.size()) {
+                    // Single loop that simulate a callback (ignore flushing)
+                    while (signal_out.size() < signal_in.size()) {
 
+                        int chunk_size_req = std::min<int>(chunk_size, signal_in.size() - pab->input_length());
                         chunk_in.clear();
-                        int chunk_size_to_push = std::min<int>(chunk_size, signal_in.size() - nb_samples_total);
-                        chunk_in.push_back(signal_in, nb_samples_total, chunk_size_to_push);
-                        nb_samples_total += chunk_size_to_push;
+                        chunk_in.push_back(signal_in, pab->input_length(), chunk_size_req);
+                        int signal_out_size_before = signal_out.size();
 
-                        chunk_out.clear();
-                        pab->proc_same_size(chunk_in, &chunk_out);
-                        // assert(chunk_out.size() == chunk_size);  // signal is not integer multiple of chunk size, so the last chunk will be smaller than chunk_size
-                        phaseshift::dev::test_require(chunk_out.size() == chunk_in.size(), "audio_block_ola_test: chunk_out.size() != chunk_in.size()");
-            
-                        signal_out.push_back(chunk_out);
+                        pab->process_realtime(chunk_in, &signal_out);
+
+                        int signal_out_size_after = signal_out.size();
+                        phaseshift::dev::test_require(chunk_in.size() == signal_out_size_after-signal_out_size_before, "audio_block_ola_test: chunk_in.size() != signal_out_size_after-signal_out_size_before");
                     }
                 }
 
-
                 // Finalize -------------------------------------------
 
-                phaseshift::dev::test_require(pab->stat_rt_nb_failed() == 0, "audio_block_ola_test: stat_rt_nb_failed() != 0");
+                #if 0
+                    DOUT << "signal_in.size()=" << signal_in.size() << ", signal_out.size()=" << signal_out.size() << std::endl;
+                    phaseshift::tinywavfile_writer::write("signal_in.wav", fs, signal_in);
+                    phaseshift::tinywavfile_writer::write("signal_out.wav", fs, signal_out);
+                    if (signal_out.size() == signal_in.size()) {
+                        phaseshift::ringbuffer<float> residual;
+                        residual.resize_allocation(signal_in.size());
+                        residual.clear();
+                        residual = signal_in;
+                        residual -= signal_out;
+                        phaseshift::tinywavfile_writer::write("signal_res.wav", fs, residual);
+                    }
+                #endif
 
+                phaseshift::dev::test_require(signal_out.size() > 0, "audio_block_ola_test: signal_out.size() == 0");
                 phaseshift::dev::test_require(signal_out.size() == signal_in.size(), "audio_block_ola_test: signal_out.size() != signal_in.size()");
-                phaseshift::dev::test_require(signal_in.size() == nb_samples_total, "audio_block_ola_test: signal_in.size() != nb_samples_total");
 
                 phaseshift::dev::signals_check_nan_inf(signal_out);
-
-                #if 0
-                    phaseshift::sndfile_writer::write("flop.in.wav", fs, signal_in);
-                    phaseshift::sndfile_writer::write("flop.out.wav", fs, signal_out);
-                    phaseshift::ringbuffer<float> residual;
-                    residual.resize_allocation(signal_in.size());
-                    residual.clear();
-                    residual = signal_in;
-                    residual -= signal_out;
-                    phaseshift::sndfile_writer::write("flop.res.wav", fs, residual);
-                #endif
 
                 if ((mode == int(mode_offline)) || (mode == int(mode_streaming))) {
 
@@ -524,7 +602,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                 } else if (mode == int(mode_realtime)) {
 
-                    phaseshift::dev::test_require(pab->stat_rt_out_size_min() < chunk_size, "audio_block_ola_test: stat_rt_out_size_min() >= chunk_size");
+                    phaseshift::dev::test_require(pab->stat_realtime_out_size_min() < chunk_size, "audio_block_ola_test: stat_realtime_out_size_min() >= chunk_size");
 
                     if (synth == synth_click) {
 
@@ -577,9 +655,7 @@ void phaseshift::dev::audio_block_ola_builder_test_singlethread() {
         pbuilder->set_fs(fs);
         pbuilder->set_timestep(timestep);
         pbuilder->set_winlen(winlen);
-        pbuilder->set_in_out_same_size_max(chunk_size);
-
-        // DOUT << "fs=" << fs << ", winlen=" << winlen << ", timestep=" << timestep << ", chunk_size=" << chunk_size << std::endl;
+        pbuilder->set_output_buffer_size_max(chunk_size);
 
         auto pab = pbuilder->build();
 

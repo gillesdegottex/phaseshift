@@ -46,44 +46,6 @@ namespace phaseshift {
         //! The sampling frequency of the processed signal. Of float type, because it will most often end up being converted to float anyway.
         inline float fs() const {return m_fs;}
 
-        //! Main entry function for processing an input (without any given output)
-        virtual void proc(const phaseshift::ringbuffer<float>& in) {
-            proc_time_start();
-
-            // Processing happens here
-
-            proc_time_end(in.size()/fs());
-        }
-        virtual void flush() {
-            // Processing any remaining input data here
-        }
-
-        //! Main entry function for transforming an input.
-        //  This function does not realize the latency returned by latency(.)
-        //  It is thus usefull for offline processing.
-        virtual void proc(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-            assert(pout != nullptr);
-            proc_time_start();
-
-            // Processing happens here
-            pout->push_back(in);
-
-            proc_time_end(in.size()/fs());
-        }
-
-        //! This function always output in `pout` the same number of samples that are provided in `in`.
-        //  It is quite handy for real-time processing.
-        //  Because no sample is available as long as the latency is not expired, this function will prepend
-        //  the output with the necessary zeros.
-        virtual void proc_same_size(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout) {
-            proc(in, pout);
-        }
-
-        virtual void flush(phaseshift::ringbuffer<float>* pout) {
-            // Processing any remaining input data here
-            (void)pout;
-        }
-
         //! When using proc_same_size(.), the latency is the delay an audio event (ex. a click)
         //  go through processing before re-appearing in the output.
         //  When using proc(.), this latency is not realized. I.e. the proc(.) function will not output any
