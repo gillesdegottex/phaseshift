@@ -176,15 +176,31 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         pout = &m_out;
     }
 
+    // Use local target_output_length: default accounts for flush tail, override if m_target_output_length is set
+    // TODO Refacto to use only target_output_length and not m_flush_nb_samples_total anymore.
+    phaseshift::globalcursor_t target_output_length = m_input_length;
+    if (m_target_output_length > 0) {
+        target_output_length = m_target_output_length;
+    }
+
     if (!m_status.flushing) {  // First time flushing
-        m_flush_nb_samples_total = flush_available();
+        // Number of output samples that remains to be flushed
+        m_flush_nb_samples_total = m_frame_rolling.size();
+        // We absolutely need to flush at least m_frame_rolling.size()
+        if (m_extra_samples_to_flush > 0) {
+            // So add the extra samples to flush only if positive.
+            // If they are eventually too many samples, daughter classes should handle the case.
+            m_flush_nb_samples_total += m_extra_samples_to_flush;
+        }
+
+        // DOUT << "m_flush_nb_samples_total=" << m_flush_nb_samples_total << " vs " << target_output_length - m_output_length << std::endl;
         m_status.flushing = true;
     }
 
     int nb_samples_output_this_flush = 0;
 
     // Process windows until we've output enough or finished
-    while (m_flush_nb_samples_total > 0) {
+    while (m_flush_nb_samples_total > 0 || (m_target_output_length > 0 && m_output_length < m_target_output_length)) {
 
         // Check chunk_size limit
         if (chunk_size_max > 0 && nb_samples_output_this_flush >= chunk_size_max) {
@@ -192,6 +208,7 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         }
 
         // Fill rolling buffer to winlen with zeros (limited by chunk_size_max if set)
+        // TODO Limit it so that nb_samples_output_this_flush does not exceed chunk_size_max (tried, but was stuck in an infinite loop)
         int zeros_needed = winlen() - m_frame_rolling.size();
         if (zeros_needed > 0) {
             if (chunk_size_max > 0) {  // It can be -1 for disable
@@ -204,10 +221,13 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         }
 
         if (m_frame_rolling.size() == winlen()) {
+            // From here, nb_samples_to_flush cannot be limited by chunk_size_max.
+            // Otherwise the sum over the flush(.) calls wont match.
+            // It can be limited by the very end of the signal though.
 
             // Determine how many samples to output for this window
             int nb_samples_to_flush = m_timestep;
-            if (m_flush_nb_samples_total <= m_timestep) {
+            if (m_flush_nb_samples_total > 0 && m_flush_nb_samples_total <= m_timestep) {
                 nb_samples_to_flush = m_flush_nb_samples_total;
                 m_status.last_frame = true;
             }
@@ -244,9 +264,11 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         }
     }
 
-    assert(chunk_size_max>0 || m_flush_nb_samples_total == 0 && "phaseshift::ola::flush: Everything should be flushed, but it didn't eventually.");
+    // Assert: we should have exited due to chunk_size_max limit, flush completion, or reaching target output length
+    assert(chunk_size_max>0 || m_flush_nb_samples_total == 0 || (m_target_output_length > 0 && m_output_length >= m_target_output_length) && "phaseshift::ola::flush: Everything should be flushed, but it didn't eventually.");
 
-    if (m_flush_nb_samples_total <= 0) {  // Use <= as a safenet
+    // Only finish if we've flushed everything AND (no target set OR target reached)
+    if (m_flush_nb_samples_total <= 0 && (m_target_output_length <= 0 || m_output_length >= m_target_output_length)) {
         // Reached the end of the audio stream
         m_frame_rolling.clear();  // flush discontinues the audio stream, so clear the internal buffer.
         // m_extra_samples_to_flush = 0;  // Do not clear this, bcs it is used for reset()
@@ -433,7 +455,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
     if (m_max_input_chunk_size > 0) {
         output_buffer_size = std::max(output_buffer_size, pab->max_output_chunk_size(m_max_input_chunk_size));
     }
-    pab->m_out.resize_allocation(output_buffer_size);
+    pab->m_out.resize_allocation(2*output_buffer_size);
     pab->m_out.clear();
 
     pab->m_win.resize_allocation(m_winlen);

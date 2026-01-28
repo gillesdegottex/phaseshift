@@ -89,13 +89,13 @@ namespace phaseshift {
             int m_first_frame_at_t0_samples_to_skip = 0;  // TODO TODO TODO Clean this bcs it is not used only as first_frame_at_t0
             int m_extra_samples_to_flush = 0;
             int m_flush_nb_samples_total = 0;
-            phaseshift::globalcursor_t m_target_output_length = -1;  // Absolute target output length in samples (-1 = disabled)
 
             phaseshift::globalcursor_t m_input_length = 0;
             phaseshift::globalcursor_t m_input_win_center_idx = 0;
             phaseshift::globalcursor_t m_input_win_center_idx_next = 0;
             phaseshift::globalcursor_t m_output_length = 0;
             phaseshift::globalcursor_t m_output_win_center_idx = 0;
+            phaseshift::globalcursor_t m_target_output_length = -1;  // Absolute target output length in samples (-1 = disabled)
 
             int proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
 
@@ -161,26 +161,17 @@ namespace phaseshift {
             virtual int process_input_available();
             //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
             // TODO TODO TODO Return values shouldn't be about input values?
-            //                Might be just better that process(.) limits the input when there is not enough space in the internal output buffer.
-            //                Instead of providing process_input_available() and let it blow if not respected.
-            // TODO TODO TODO During time scaling, it also depends on the available space in the frame buffer...
+            //                * Might be just better that process(.) limits the input when there is not enough space in the internal output buffer.
+            //                  Instead of providing process_input_available() and let it blow if not respected.
+            //                * During time scaling, it also depends on the available space in the frame buffer...
             virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples that remains to be flushed/outputted.
             inline int flush_available() {
-
-                if (m_status.flushing) {
-                    return m_flush_nb_samples_total;
-                } else {
-                    // Number of output samples that remains to be flushed
-                    m_flush_nb_samples_total = m_frame_rolling.size();
-                    // We absolutely need to flush at least m_frame_rolling.size()
-                    if (m_extra_samples_to_flush > 0) {
-                        // So add the extra samples to flush only if positive.
-                        // If they are eventually too many samples, daughter classes should handle the case.
-                        m_flush_nb_samples_total += m_extra_samples_to_flush;
-                    }
+                phaseshift::globalcursor_t target_output_length = m_input_length;
+                if (m_target_output_length > 0) {
+                    target_output_length = m_target_output_length;
                 }
-                return m_flush_nb_samples_total;
+                return target_output_length - m_output_length;
             }
             //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
             //  Returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
