@@ -178,10 +178,10 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
 
     // Use local target_output_length: default accounts for flush tail, override if m_target_output_length is set
     // TODO Refacto to use only target_output_length and not m_flush_nb_samples_total anymore.
-    phaseshift::globalcursor_t target_output_length = m_input_length;
-    if (m_target_output_length > 0) {
-        target_output_length = m_target_output_length;
-    }
+    // phaseshift::globalcursor_t target_output_length = m_input_length;
+    // if (m_target_output_length > 0) {
+    //     target_output_length = m_target_output_length;
+    // }
 
     if (!m_status.flushing) {  // First time flushing
         // Number of output samples that remains to be flushed
