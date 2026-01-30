@@ -273,7 +273,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
 message(STATUS)
 message(STATUS "The ${PROJECT_NAME} library itself:")
 
-add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c ${PHASESHIFT_SOURCES_SUPPORT})
+add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/ola_decoupled.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c ${PHASESHIFT_SOURCES_SUPPORT})
 
 # Wait for sndfile to be built before building anything with phaseshift
 if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
@@ -345,6 +345,11 @@ set_target_properties(phaseshift
     target_include_directories(phaseshift_audio_block_ola_test PUBLIC ${PHASESHIFT_INCLUDES})
     target_link_libraries(phaseshift_audio_block_ola_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_audio_block_ola_test COMMAND phaseshift_audio_block_ola_test)
+
+    add_executable(phaseshift_audio_block_ola_decoupled_test phaseshift/audio_block/ola_decoupled_test.cpp ${PHASESHIFT_SOURCES_TESTS})
+    target_include_directories(phaseshift_audio_block_ola_decoupled_test PUBLIC ${PHASESHIFT_INCLUDES})
+    target_link_libraries(phaseshift_audio_block_ola_decoupled_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    add_test(NAME phaseshift_audio_block_ola_decoupled_test COMMAND phaseshift_audio_block_ola_decoupled_test)
 
     add_executable(phaseshift_lookup_table_test phaseshift/lookup_table_test.cpp)
     target_include_directories(phaseshift_lookup_table_test PUBLIC ${PHASESHIFT_INCLUDES})
