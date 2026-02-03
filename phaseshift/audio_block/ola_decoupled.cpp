@@ -160,9 +160,28 @@ int phaseshift::ola_decoupled::process(const phaseshift::ringbuffer<float>& in, 
             m_output_win_center_idx = -m_first_frame_at_t0_samples_to_skip + m_output_length + (winlen()-1)/2;
             m_status.output_win_center_idx = m_output_win_center_idx;
 
+            // Check if output buffer has enough space BEFORE calling should_output()
+            // (important for slow-down which produces multiple outputs per input)
+            // should_output() modifies accumulator state, so we must check first
+            if (pout->size() + m_timestep > pout->size_max()) {
+                // Not enough space - return what we have, caller should drain and retry
+                // Note: we don't consume input, so next call will continue from here
+                proc_time_end(in.size() / fs());
+                return nb_output;
+            }
+
             // DECOUPLED DECISION 1: Should we produce output?
             if (should_output(m_status)) {
-                int nb_output_this_step = output_one_frame(pout, m_timestep);
+                // Determine output size for this frame
+                int nb_samples_to_output = m_timestep;
+                if (m_target_output_length > 0) {
+                    // With time scaling target: limit to remaining target
+                    phaseshift::globalcursor_t remaining = m_target_output_length - m_output_length;
+                    if (remaining < nb_samples_to_output) {
+                        nb_samples_to_output = static_cast<int>(remaining);
+                    }
+                }
+                int nb_output_this_step = output_one_frame(pout, nb_samples_to_output);
                 nb_output += nb_output_this_step;
             }
 
@@ -258,9 +277,16 @@ int phaseshift::ola_decoupled::flush(int chunk_size_max, phaseshift::ringbuffer<
         // Determine output size for this frame
         int nb_samples_to_output = m_timestep;
         if (m_target_output_length > 0) {
+            // With time scaling target: limit to remaining target
             phaseshift::globalcursor_t remaining = m_target_output_length - m_output_length;
             if (remaining < nb_samples_to_output) {
                 nb_samples_to_output = static_cast<int>(remaining);
+                m_status.last_frame = true;
+            }
+        } else {
+            // Without time scaling: limit to remaining input (1:1 ratio)
+            if (m_flush_nb_samples_total > 0 && m_flush_nb_samples_total < nb_samples_to_output) {
+                nb_samples_to_output = m_flush_nb_samples_total;
                 m_status.last_frame = true;
             }
         }
@@ -273,20 +299,30 @@ int phaseshift::ola_decoupled::flush(int chunk_size_max, phaseshift::ringbuffer<
 
         // DECOUPLED DECISION 2: Should we consume input?
         if (should_consume_input(m_status)) {
+            // We're consuming (not repeating) - this is speed up or normal mode
+            if (input_exhausted && (no_target || target_reached)) {
+                // Input exhausted and either no target or target reached
+                m_status.finished = true;
+                m_frame_rolling.clear();
+                break;
+            }
             advance_input_cursor();
             // Only decrement input counter when actually consuming
             if (m_flush_nb_samples_total > 0) {
                 m_flush_nb_samples_total -= std::min(m_timestep, m_flush_nb_samples_total);
             }
         }
-        else if (input_exhausted && no_target) {
-            // Input exhausted, not consuming, and no target to reach
-            // This is an edge case - terminate to avoid infinite loop
-            m_status.finished = true;
-            m_frame_rolling.clear();
-            break;
+        else {
+            // Not consuming (repeating frames) - this is slow down mode
+            if (input_exhausted && (no_target || target_reached)) {
+                // Input exhausted, not consuming, and no target to reach
+                // This is an edge case - terminate to avoid infinite loop
+                m_status.finished = true;
+                m_frame_rolling.clear();
+                break;
+            }
+            // else: slow down case with target - continue repeating until target reached
         }
-        // else: slow down case with target - continue repeating until target reached
     }
 
     proc_time_end(nb_samples_output_this_flush / fs());
