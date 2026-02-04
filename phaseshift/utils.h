@@ -147,14 +147,14 @@ namespace phaseshift {
     namespace float32 {
         inline constexpr int size()  {return sizeof(float);}
         inline constexpr double eps()   {return std::numeric_limits<float>::epsilon();}
-        inline constexpr double min()   {return (std::numeric_limits<float>::min)();}
-        inline constexpr double max()   {return (std::numeric_limits<float>::max)();}
+        inline constexpr double min()   {return std::numeric_limits<float>::min();}
+        inline constexpr double max()   {return std::numeric_limits<float>::max();}
     }
     namespace float64 {
         inline constexpr int size()  {return sizeof(double);}
         inline constexpr double eps()   {return std::numeric_limits<double>::epsilon();}
-        inline constexpr double min()   {return (std::numeric_limits<double>::min)();}
-        inline constexpr double max()   {return (std::numeric_limits<double>::max)();}
+        inline constexpr double min()   {return std::numeric_limits<double>::min();}
+        inline constexpr double max()   {return std::numeric_limits<double>::max();}
     }
 
     static const float twopi = 2*M_PI;
