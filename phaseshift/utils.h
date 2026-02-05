@@ -129,7 +129,7 @@ namespace phaseshift {
 
     inline int nextpow2(int winlen) {  // TODO(GD) Move to fftscarf
         assert(winlen > 0);
-        int dftlen = std::pow<int>(2, static_cast<int>(std::ceil(std::log2f(winlen))));
+        int dftlen = static_cast<int>(std::pow<int>(2, static_cast<int>(std::ceil(std::log2f(static_cast<float>(winlen))))));
         assert(dftlen >= winlen);
         assert(dftlen < 2*winlen);
         return dftlen;

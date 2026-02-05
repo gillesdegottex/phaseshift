@@ -212,7 +212,7 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
                 // Generate input signal ------------------------------
 
                 phaseshift::ringbuffer<float> signal_in;
-                signal_in.resize_allocation(fs * duration_s);
+                signal_in.resize_allocation(static_cast<int>(fs * duration_s));
                 signal_in.clear();
                 if (synth == synth_noise) {
                     phaseshift::push_back_noise_normal(signal_in, signal_in.capacity(), gen, 0.0f, 0.2f, 0.99f);
@@ -228,16 +228,16 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
                 } else if (synth == synth_sin) {
                     signal_in.push_back(0.0f, signal_in.capacity());
                     for (int n = 0; n < signal_in.size(); ++n) {
-                        signal_in[n] = 0.9f * std::sin(2.0f * M_PI * 440.0f * n / fs);
+                        signal_in[n] = 0.9f * std::sin(2 * static_cast<float>(M_PI) * 440.0f * n / fs);
                     }
                 } else if (synth == synth_harmonics) {
                     signal_in.push_back(0.0f, signal_in.capacity());
                     float f0 = 110.0f;
-                    float nb_harmonics = int((0.5*fs-f0)/f0);
+                    int nb_harmonics = static_cast<int>((0.5f*fs-f0)/f0);
                     float amplitude = 0.9f/nb_harmonics;
                     for (int n = 0; n < signal_in.size(); ++n) {
                         for (int h = 0; h <= nb_harmonics; ++h) {
-                            signal_in[n] = amplitude * std::sin(2.0f * M_PI * h * f0 * n / fs);
+                            signal_in[n] = amplitude * std::sin(2 * static_cast<float>(M_PI) * h * f0 * n / fs);
                         }
                     }
                 }
@@ -261,7 +261,7 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
                     while (nb_samples_total < signal_in.size()) {
 
                         chunk_in.clear();
-                        int chunk_size_to_push = std::min<int>(chunk_size, signal_in.size() - nb_samples_total);
+                        int chunk_size_to_push = std::min<int>(chunk_size, static_cast<int>(signal_in.size() - nb_samples_total));
                         chunk_in.push_back(signal_in, nb_samples_total, chunk_size_to_push);
                         nb_samples_total += chunk_size_to_push;
 
