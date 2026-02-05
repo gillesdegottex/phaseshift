@@ -203,7 +203,6 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
     message(STATUS "libsndfile (local build)")
     add_definitions(-DPHASESHIFT_SUPPORT_SNDFILE)
     set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
-    set(PHASESHIFT_SOURCES_SUPPORT ${PHASESHIFT_SOURCES_SUPPORT} ${PROJECT_NAME}/audio_block/sndfile.cpp)
 
     # Can't do that as it breaks some configurations about testing
     # add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/libsndfile ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_build)
@@ -264,8 +263,6 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
 
     set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${LIBSNDFILE_INCLUDE_DIRS})
     set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${LIBSNDFILE_LDFLAGS} ${LIBSNDFILE_LIBRARIES})
-
-    set(PHASESHIFT_SOURCES_SUPPORT ${PHASESHIFT_SOURCES_SUPPORT} ${PROJECT_NAME}/audio_block/sndfile.cpp)
   endif()
 
 
@@ -273,13 +270,23 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
 message(STATUS)
 message(STATUS "The ${PROJECT_NAME} library itself:")
 
-add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c ${PHASESHIFT_SOURCES_SUPPORT})
+add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c)
+
+# Include sndfile support only if explicitly requested
+if(PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
+    message(STATUS "  Including libsndfile (local build)")
+    target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}/audio_block/sndfile.cpp)
+elseif(PHASESHIFT_SUPPORT_SNDFILE)
+    message(STATUS "  Including libsndfile (system)")
+    target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}/audio_block/sndfile.cpp)
+endif()
 
 # Wait for sndfile to be built before building anything with phaseshift
 if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
   add_dependencies(${PROJECT_NAME} libsndfile_local )
 endif()
 
+# Set test source file (catch2_extra.cpp is always needed for tests)
 set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} ${CMAKE_CURRENT_SOURCE_DIR}/phaseshift/dev/catch2_extra.cpp)
 
 set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -314,10 +321,8 @@ set_target_properties(phaseshift
     set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
     include(CTest)
 
-    # TODO Tests should run using tinywavfile, not libsndfile
-    if ((NOT PHASESHIFT_SUPPORT_SNDFILE_LOCAL) AND (NOT PHASESHIFT_SUPPORT_SNDFILE))
-      message(FATAL_ERROR "When activating tests (PHASESHIFT_DEV_TESTS), you need to either activate PHASESHIFT_SUPPORT_SNDFILE (use system libsndfile library) or PHASESHIFT_SUPPORT_SNDFILE_LOCAL (rebuild libsndfile in the build directory).")
-    endif()
+    # Note: Tests can be built without libsndfile support since they don't use it
+    # libsndfile is only needed for actual functionality that requires it
 
     if (WIN32)
     else()
