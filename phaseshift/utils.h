@@ -8,16 +8,18 @@
 #ifndef PHASESHIFT_UTILS_H_
 #define PHASESHIFT_UTILS_H_
 
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
+#include <cmath>
+
 #include <random>
 #include <limits>
 #include <complex>
-
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cassert>
-#define _USE_MATH_DEFINES  // For win32
-#include <cmath>
 #include <chrono>
 #include <thread>
 #include <ctime>
