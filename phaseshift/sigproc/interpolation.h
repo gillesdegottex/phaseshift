@@ -144,7 +144,7 @@ namespace phaseshift {
         if (x == 0.0f)
             return 1.0f;
 
-        x *= M_PI;
+        x *= static_cast<float>(M_PI);
 
         return std::sin(x)/x;
     }
@@ -160,9 +160,9 @@ namespace phaseshift {
         value_type w;
 
         if (std::abs(t) == 1/beta2) {
-            w = (M_PI/4) * sinc(1.0/beta2);
+            w = (static_cast<value_type>(M_PI) / 4) * sinc(1.0/beta2);
         } else {
-            w = sinc(t) * std::cos(M_PI*beta*t);
+            w = sinc(t) * std::cos(static_cast<value_type>(M_PI)*beta*t);
             base = beta2*t;
             w /= 1.0 - base*base;
         }

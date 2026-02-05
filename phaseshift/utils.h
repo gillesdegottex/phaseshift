@@ -159,9 +159,9 @@ namespace phaseshift {
         inline constexpr double (max)()   {return (std::numeric_limits<double>::max)();}
     }
 
-    static const float twopi = 2*M_PI;
-    static const float oneover_twopi = 1.0f/(2*M_PI);
-    static const float piovertwo = M_PI/2;
+    static const float twopi = 2.0f * static_cast<float>(M_PI);
+    static const float oneover_twopi = 1.0f/(2.0f * static_cast<float>(M_PI));
+    static const float piovertwo = static_cast<float>(M_PI) / 2.0f;
 
     //! Preferes signed in order to be able to check for overflow or inconsistency
     typedef int64_t globalcursor_t;

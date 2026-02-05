@@ -55,7 +55,6 @@ namespace phaseshift {
                 size_t aligned_size = ((size + alignment - 1) / alignment) * alignment;
                 return std::aligned_alloc(alignment, aligned_size);
             #endif
-            return nullptr;
         }
 
         inline void aligned_free(void* ptr) {
