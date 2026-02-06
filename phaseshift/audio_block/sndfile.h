@@ -83,8 +83,9 @@ namespace phaseshift {
                                 pout->push_back(m_chunk[n]);
                         }
 
-                    if (nbframes > requested_size-read_frames_total)
-                        nbframes = requested_size-read_frames_total;
+                    int remaining = requested_size - read_frames_total;
+                    if (nbframes > remaining)
+                        nbframes = remaining;
                 }
 
                 proc_time_end(read_frames_total/fs());

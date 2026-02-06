@@ -360,6 +360,14 @@ set_target_properties(phaseshift
     target_include_directories(phaseshift_lookup_table_clipper_test PUBLIC ${PHASESHIFT_INCLUDES})
     target_link_libraries(phaseshift_lookup_table_clipper_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_lookup_table_clipper_test COMMAND phaseshift_lookup_table_clipper_test)
+
+    # libsndfile test
+    if((PHASESHIFT_SUPPORT_SNDFILE) OR (PHASESHIFT_SUPPORT_SNDFILE_LOCAL))
+        add_executable(phaseshift_libsndfile_test phaseshift/libsndfile_test.cpp)
+        target_include_directories(phaseshift_libsndfile_test PUBLIC ${PHASESHIFT_INCLUDES})
+        target_link_libraries(phaseshift_libsndfile_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+        add_test(NAME phaseshift_libsndfile_test COMMAND phaseshift_libsndfile_test)
+    endif()
     endif()
 
   # Benchmarks ----------------------------------------------------------------
