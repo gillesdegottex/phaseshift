@@ -259,7 +259,7 @@ namespace phaseshift {
             //    * Handles valid combinations of window lengths and timesteps
             //    * Handles various chunk sizes
             void audio_block_ola_builder_test_singlethread();
-            void audio_block_ola_builder_test(int nb_threads=4);
+            void audio_block_ola_builder_test(int nb_threads=3);
         }
 
 }  // namespace phaseshift
