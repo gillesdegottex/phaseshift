@@ -189,7 +189,6 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   message(STATUS)
   message(STATUS "Eigen")
   # add_definitions(-DEIGEN_DEFAULT_TO_ROW_MAJOR) # Eigen is tested/developped with column major order. But row major make it compatible with numpy I think.
-  include_directories(ext/eigen)
   set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/eigen)
   add_definitions(-DEIGEN_MPL2_ONLY)
   set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DEIGEN_MPL2_ONLY)
@@ -290,8 +289,14 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} ${CMAKE_CURRENT_SOURCE_
 
 set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR})
 set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/)
+
+# All include directories are PUBLIC on the phaseshift target.
+# Consumers only need target_link_libraries(consumer phaseshift) to get them transitively.
 target_include_directories(${PROJECT_NAME} PUBLIC ${PHASESHIFT_INCLUDES})
-set(PHASESHIFT_LIBRARIES phaseshift ${PHASESHIFT_LIBRARIES} ${PHASESHIFT_POST_LIBRARIES})
+
+# Link all accumulated library dependencies directly to the phaseshift target.
+# This makes them propagate transitively — no need for a PHASESHIFT_LIBRARIES flat list.
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PHASESHIFT_LIBRARIES})
 
 
 set_target_properties(phaseshift
@@ -323,48 +328,41 @@ set_target_properties(phaseshift
     # Note: Tests can be built without libsndfile support since they don't use it
     # libsndfile is only needed for actual functionality that requires it
 
-    if (WIN32)
-    else()
-      set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} -lpthread)
+    # Tests link against phaseshift (which carries all includes and libs transitively)
+    if (NOT WIN32)
+      set(PHASESHIFT_TEST_EXTRA_LIBS -lpthread)
     endif()
 
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/Catch2)
 
     add_executable(phaseshift_utils_test phaseshift/utils_test.cpp)
-    target_include_directories(phaseshift_utils_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_utils_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_utils_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_utils_test COMMAND phaseshift_utils_test)
 
     add_executable(phaseshift_ringbuffer_test phaseshift/containers/ringbuffer_test.cpp)
-    target_include_directories(phaseshift_ringbuffer_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_ringbuffer_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_ringbuffer_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_ringbuffer_test COMMAND phaseshift_ringbuffer_test)
 
     add_executable(phaseshift_audio_block_ol_test phaseshift/audio_block/ol_test.cpp ${PHASESHIFT_SOURCES_TESTS})
-    target_include_directories(phaseshift_audio_block_ol_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_audio_block_ol_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_audio_block_ol_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_audio_block_ol_test COMMAND phaseshift_audio_block_ol_test)
 
     add_executable(phaseshift_audio_block_ola_test phaseshift/audio_block/ola_test.cpp ${PHASESHIFT_SOURCES_TESTS})
-    target_include_directories(phaseshift_audio_block_ola_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_audio_block_ola_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_audio_block_ola_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_audio_block_ola_test COMMAND phaseshift_audio_block_ola_test)
 
     add_executable(phaseshift_lookup_table_test phaseshift/lookup_table_test.cpp)
-    target_include_directories(phaseshift_lookup_table_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_lookup_table_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_lookup_table_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_lookup_table_test COMMAND phaseshift_lookup_table_test)
 
     add_executable(phaseshift_lookup_table_clipper_test phaseshift/sigproc/clipper_test.cpp)
-    target_include_directories(phaseshift_lookup_table_clipper_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_lookup_table_clipper_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_lookup_table_clipper_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_lookup_table_clipper_test COMMAND phaseshift_lookup_table_clipper_test)
 
     # libsndfile test
     if((PHASESHIFT_SUPPORT_SNDFILE) OR (PHASESHIFT_SUPPORT_SNDFILE_LOCAL))
         add_executable(phaseshift_libsndfile_test phaseshift/libsndfile_test.cpp)
-        target_include_directories(phaseshift_libsndfile_test PUBLIC ${PHASESHIFT_INCLUDES})
-        target_link_libraries(phaseshift_libsndfile_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+        target_link_libraries(phaseshift_libsndfile_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
         add_test(NAME phaseshift_libsndfile_test COMMAND phaseshift_libsndfile_test)
     endif()
   endif()
@@ -406,8 +404,8 @@ message(STATUS "  CMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE}")
 
 if (NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
   set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} PARENT_SCOPE)
-  set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} PARENT_SCOPE)
-  set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} PARENT_SCOPE)
+  # transitively through the phaseshift target (via target_link_libraries).
+  # PHASESHIFT_LIBRARIES is no longer exported — consumers just link against 'phaseshift'.
   set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} PARENT_SCOPE)
   set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_ARCH ${PHASESHIFT_BUILD_ARCH} PARENT_SCOPE)
