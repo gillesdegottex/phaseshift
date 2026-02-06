@@ -180,9 +180,7 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
   set(FFTSCARF_PLAN_PROTECTACCESS ON CACHE STRING "docstring")
   add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/ext/fftscarf ${CMAKE_CURRENT_BINARY_DIR}/fftscarf_build)
 
-  message(STATUS "  FFTSCARF_INCLUDES: " ${FFTSCARF_INCLUDES})
   message(STATUS "  FFTSCARF_LIBRARIES: " ${FFTSCARF_LIBRARIES})
-  message(STATUS "  FFTSCARF_FFT_IPP_LIBDIR=" ${FFTSCARF_FFT_IPP_LIBDIR})
 
   set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${FFTSCARF_INCLUDES} ${CMAKE_CURRENT_BINARY_DIR}/fftscarf_build)
   set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${FFTSCARF_LIBRARIES})
@@ -271,6 +269,7 @@ message(STATUS)
 message(STATUS "The ${PROJECT_NAME} library itself:")
 
 add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c)
+target_link_libraries(${PROJECT_NAME} PUBLIC fftscarf)
 
 # Include sndfile support only if explicitly requested
 if(PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
