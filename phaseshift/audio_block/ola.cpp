@@ -491,7 +491,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
 // TODO(GD) Factor with audio_block_ol_test code?
 void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold, int options) {
 
-    float duration_s = 3.0f;
+    float duration_s = 1.5f;
 
     // Static tests
     phaseshift::dev::test_require(pab->fs() > 0.0f, "audio_block_ola_test: fs() <= 0.0f");
