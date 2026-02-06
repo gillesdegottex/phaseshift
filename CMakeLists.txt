@@ -368,7 +368,7 @@ set_target_properties(phaseshift
         target_link_libraries(phaseshift_libsndfile_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
         add_test(NAME phaseshift_libsndfile_test COMMAND phaseshift_libsndfile_test)
     endif()
-    endif()
+  endif()
 
   # Benchmarks ----------------------------------------------------------------
   # if(PHASESHIFT_BENCHMARKS)
