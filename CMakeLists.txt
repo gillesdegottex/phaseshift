@@ -335,18 +335,6 @@ set_target_properties(phaseshift
     endif()
   endif()
 
-  # Benchmarks ----------------------------------------------------------------
-  # if(PHASESHIFT_BENCHMARKS)
-  #   add_subdirectory(benchmarks/ola)
-  #   add_dependencies(benchmark_ola ${PROJECT_NAME})
-
-  #   add_subdirectory(benchmarks/interpolation)
-  #   add_dependencies(benchmark_interpolation ${PROJECT_NAME})
-
-  #   # TODO(GD) Add one for lookup tables
-  # endif()
-
-
 # Some info -------------------------------------------------------------------
 message(STATUS)
 message(STATUS "  PHASESHIFT_INSTALL_FILES=" )
@@ -360,7 +348,6 @@ message(STATUS "  CMAKE_C_FLAGS_RELEASE=${CMAKE_C_FLAGS_RELEASE}")
 message(STATUS "  CMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE}")
 
 if (NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
-  set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} PARENT_SCOPE)
   set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} PARENT_SCOPE)
   set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_ARCH ${PHASESHIFT_BUILD_ARCH} PARENT_SCOPE)
@@ -369,5 +356,4 @@ if (NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
   set(PHASESHIFT_BUILD_OS ${PHASESHIFT_BUILD_OS} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_OS_VERSION ${PHASESHIFT_BUILD_OS_VERSION} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_TRIPLE ${PHASESHIFT_BUILD_TRIPLE} PARENT_SCOPE)
-  set(FFTSCARF_FFT_IPP_LIBDIR ${FFTSCARF_FFT_IPP_LIBDIR} PARENT_SCOPE)
 endif()
