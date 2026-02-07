@@ -9,7 +9,6 @@ cmake_minimum_required(VERSION 3.22)
 
 project(phaseshift)
 
-
 # Compilation options ---------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -28,6 +27,13 @@ set(PHASESHIFT_BUILD_ARCH "undefined" CACHE STRING "The string identifying the a
 message(STATUS "  CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME})
 message(STATUS "  CMAKE_SYSTEM_VERSION: " ${CMAKE_SYSTEM_VERSION})
 message(STATUS "  CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR})
+
+# The lib itself --------------------------------------------------------------
+
+add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Defines ---------------------------------------------------------------------
 
 # https://mcyoung.xyz/2025/04/14/target-triples/
 set(PHASESHIFT_BUILD_DEVICE_ARCH "undefined")
@@ -84,7 +90,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
   set(PHASESHIFT_BUILD_OS "android")
   set(PHASESHIFT_BUILD_OS_VERSION "${ANDROID_PLATFORM}")
   set(PHASESHIFT_BUILD_ARCH_DEFAULT "android-${ANDROID_PLATFORM}-${CMAKE_ANDROID_ARCH_ABI}")
-  set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} log)  # For __android_log_print
+  target_link_libraries(${PROJECT_NAME} PUBLIC log)  # For __android_log_print
 
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(PHASESHIFT_BUILD_DEVICE_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
@@ -104,11 +110,11 @@ else()
 endif()
 message(STATUS "  Default Architecture: " ${PHASESHIFT_BUILD_ARCH_DEFAULT})
 message(STATUS "  Architecture: " ${PHASESHIFT_BUILD_ARCH} " (-DPHASESHIFT_BUILD_ARCH=<build_arch>)")
-set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_BUILD_ARCH=\"${PHASESHIFT_BUILD_ARCH}\")
 message(STATUS "  PHASESHIFT_BUILD_DEVICE_ARCH: " ${PHASESHIFT_BUILD_DEVICE_ARCH})
 message(STATUS "  PHASESHIFT_BUILD_VENDOR: " ${PHASESHIFT_BUILD_VENDOR})
 message(STATUS "  PHASESHIFT_BUILD_OS: " ${PHASESHIFT_BUILD_OS})
 message(STATUS "  PHASESHIFT_BUILD_OS_VERSION: " ${PHASESHIFT_BUILD_OS_VERSION})
+target_compile_definitions(${PROJECT_NAME} PUBLIC -DPHASESHIFT_BUILD_ARCH=\"${PHASESHIFT_BUILD_ARCH}\")
 set(PHASESHIFT_BUILD_TRIPLE "${PHASESHIFT_BUILD_DEVICE_ARCH}-${PHASESHIFT_BUILD_VENDOR}-${PHASESHIFT_BUILD_OS}")
 message(STATUS "  PHASESHIFT_BUILD_TRIPLE: " ${PHASESHIFT_BUILD_TRIPLE})
 
@@ -144,8 +150,7 @@ endif()
 
 if(PHASESHIFT_DEV_PROFILING)
   message(WARNING "  Enabled profiling measures (ex. processing time in phaseshift::audio_block) (PHASESHIFT_DEV_PROFILING=ON)")
-  add_definitions(-DPHASESHIFT_DEV_PROFILING)
-  set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_DEV_PROFILING)
+  target_compile_definitions(${PROJECT_NAME} PUBLIC -DPHASESHIFT_DEV_PROFILING)
 else()
   message(STATUS "  Profiling functions disabled. (PHASESHIFT_DEV_PROFILING=OFF)")
 endif()
@@ -155,51 +160,37 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 
-# This variable will add any extra sources that needs to be included in the phaseshift lib
-# No matter if it is for production or testing
-set(PHASESHIFT_SOURCES_SUPPORT ${PHASESHIFT_SOURCES_SUPPORT})
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/)
 
 # This variable exposes to any parent project sources that might be necessary to build tests
 # (it is _not_ included in the phaseshift lib!)
 set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
 
-# # If conda environment is present, make the corresponding directories available
-# # Not so great as it might be better to use `find_package` or `pkg-config` or something like that
-# if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
-#   message(STATUS "Conda environment detected. Adding include directory...")
-#   set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} $ENV{CONDA_PREFIX}/include)
-# endif()
-
   # ACBench -------------------------------------------------------------------
   message(STATUS)
-  message(STATUS "ACBench")
-  set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/acbench)
+  message(STATUS "* ACBench")
+  target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/acbench)
 
   # FFTScarf ------------------------------------------------------------------
+  message(STATUS)
+  message(STATUS "* FFTScarf")
   set(FFTSCARF_FFT_FFTREAL ON CACHE STRING "docstring")
   set(FFTSCARF_PLAN_PROTECTACCESS ON CACHE STRING "docstring")
   add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/ext/fftscarf ${CMAKE_CURRENT_BINARY_DIR}/fftscarf_build)
-
-  message(STATUS "  FFTSCARF_LIBRARIES: " ${FFTSCARF_LIBRARIES})
-
-  set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${FFTSCARF_INCLUDES} ${CMAKE_CURRENT_BINARY_DIR}/fftscarf_build)
-  set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${FFTSCARF_LIBRARIES})
+  target_link_libraries(${PROJECT_NAME} PUBLIC fftscarf)
 
   # Eigen ---------------------------------------------------------------------
   message(STATUS)
-  message(STATUS "Eigen")
-  # add_definitions(-DEIGEN_DEFAULT_TO_ROW_MAJOR) # Eigen is tested/developped with column major order. But row major make it compatible with numpy I think.
-  set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/eigen)
-  add_definitions(-DEIGEN_MPL2_ONLY)
-  set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DEIGEN_MPL2_ONLY)
-  message(STATUS "  Include directory: " ${CMAKE_CURRENT_SOURCE_DIR}/ext/eigen)
+  message(STATUS "* Eigen")
+  # add_definitions(-DEIGEN_DEFAULT_TO_ROW_MAJOR) # Eigen is tested/developped with column major order. But row major make it compatible with numpy I think. TODO TODO TODO
+  target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/eigen)
+  target_compile_definitions(${PROJECT_NAME} PUBLIC -DEIGEN_MPL2_ONLY)
 
   # libsndfile ----------------------------------------------------------------
   if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
     message(STATUS)
-    message(STATUS "libsndfile (local build)")
-    add_definitions(-DPHASESHIFT_SUPPORT_SNDFILE)
-    set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
+    message(STATUS "* libsndfile (local build)")
+    target_compile_definitions(${PROJECT_NAME} PUBLIC -DPHASESHIFT_SUPPORT_SNDFILE)
 
     # Can't do that as it breaks some configurations about testing
     # add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/libsndfile ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_build)
@@ -222,26 +213,23 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
       LOG_OUTPUT_ON_FAILURE TRUE
     )
 
-    set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/include)
+    target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/include)
     if (WIN32)
-      set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.dll)
+      target_link_libraries(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.dll)
       set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.dll)
     elseif(APPLE)
-      set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.1.dylib)
+      target_link_libraries(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.1.dylib)
       set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.1.dylib)
     else()
-      set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.so)
+      target_link_libraries(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.so)
       set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.so)
-      # set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.a)
-      # set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} ${CMAKE_CURRENT_BINARY_DIR}/libsndfile_install/lib/libsndfile.a)
-      set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} mpg123 mp3lame)
+      target_link_libraries(${PROJECT_NAME} PUBLIC mpg123 mp3lame)
     endif()
 
   elseif (PHASESHIFT_SUPPORT_SNDFILE)
     message(STATUS)
     message(STATUS "libsndfile")
-    add_definitions(-DPHASESHIFT_SUPPORT_SNDFILE)
-    set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_SUPPORT_SNDFILE)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC -DPHASESHIFT_SUPPORT_SNDFILE)
 
     if (WIN32)
       find_path(LIBSNDFILE_INCLUDE_DIRS sndfile.h REQUIRED PATHS "C:/Program Files/libsndfile/include")
@@ -258,17 +246,9 @@ set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
       # message(STATUS "  LIBSNDFILE_CFLAGS: " ${LIBSNDFILE_CFLAGS})
     endif()
 
-    set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${LIBSNDFILE_INCLUDE_DIRS})
-    set(PHASESHIFT_LIBRARIES ${PHASESHIFT_LIBRARIES} ${LIBSNDFILE_LDFLAGS} ${LIBSNDFILE_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} PUBLIC ${LIBSNDFILE_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBSNDFILE_LDFLAGS} ${LIBSNDFILE_LIBRARIES})
   endif()
-
-
-# The lib itself --------------------------------------------------------------
-message(STATUS)
-message(STATUS "The ${PROJECT_NAME} library itself:")
-
-add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c)
-target_link_libraries(${PROJECT_NAME} PUBLIC fftscarf)
 
 # Include sndfile support only if explicitly requested
 if(PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
@@ -286,17 +266,6 @@ endif()
 
 # Set test source file (catch2_extra.cpp is always needed for tests)
 set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} ${CMAKE_CURRENT_SOURCE_DIR}/phaseshift/dev/catch2_extra.cpp)
-
-set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR})
-set(PHASESHIFT_INCLUDES ${PHASESHIFT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/ext/)
-
-# All include directories are PUBLIC on the phaseshift target.
-# Consumers only need target_link_libraries(consumer phaseshift) to get them transitively.
-target_include_directories(${PROJECT_NAME} PUBLIC ${PHASESHIFT_INCLUDES})
-
-# Link all accumulated library dependencies directly to the phaseshift target.
-# This makes them propagate transitively — no need for a PHASESHIFT_LIBRARIES flat list.
-target_link_libraries(${PROJECT_NAME} PUBLIC ${PHASESHIFT_LIBRARIES})
 
 
 set_target_properties(phaseshift
@@ -317,8 +286,7 @@ set_target_properties(phaseshift
   # Tests ---------------------------------------------------------------------
 
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_data/totest)
-  add_compile_definitions(PHASESHIFT_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-  set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} -DPHASESHIFT_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  target_compile_definitions(${PROJECT_NAME} PUBLIC -DPHASESHIFT_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
   if(PHASESHIFT_DEV_TESTS)
     message(STATUS "Compiling tests")
@@ -380,18 +348,7 @@ set_target_properties(phaseshift
 
 
 # Some info -------------------------------------------------------------------
-message(STATUS "  PHASESHIFT_DEFINITIONS=" )
-foreach(dir ${PHASESHIFT_DEFINITIONS})
-  message(STATUS "       ${dir}")
-endforeach()
-message(STATUS "  PHASESHIFT_INCLUDES=" )
-foreach(dir ${PHASESHIFT_INCLUDES})
-  message(STATUS "       ${dir}")
-endforeach()
-message(STATUS "  PHASESHIFT_LIBRARIES=" )
-foreach(dir ${PHASESHIFT_LIBRARIES})
-  message(STATUS "       ${dir}")
-endforeach()
+message(STATUS)
 message(STATUS "  PHASESHIFT_INSTALL_FILES=" )
 foreach(dir ${PHASESHIFT_INSTALL_FILES})
   message(STATUS "       ${dir}")
@@ -404,8 +361,6 @@ message(STATUS "  CMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE}")
 
 if (NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
   set(PHASESHIFT_DEFINITIONS ${PHASESHIFT_DEFINITIONS} PARENT_SCOPE)
-  # transitively through the phaseshift target (via target_link_libraries).
-  # PHASESHIFT_LIBRARIES is no longer exported — consumers just link against 'phaseshift'.
   set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} PARENT_SCOPE)
   set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_ARCH ${PHASESHIFT_BUILD_ARCH} PARENT_SCOPE)
