@@ -22,10 +22,10 @@ int phaseshift::music_note_to_semitone(const std::string& note) {
     }
 
     if (std::islower(note_key)) {
-        note_key = std::toupper(note_key);
+        note_key = static_cast<char>(std::toupper(note_key));
     }
     if (note.size() > 1 && std::isupper(note_accidental)) {
-        note_accidental = std::tolower(note_accidental);
+        note_accidental = static_cast<char>(std::tolower(note_accidental));
     }
 
     if (note_key == 'C' && note_accidental == '\0') {

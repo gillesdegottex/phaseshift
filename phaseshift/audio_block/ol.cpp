@@ -244,7 +244,7 @@ void phaseshift::dev::audio_block_ol_test(phaseshift::ol* pab, int chunk_size) {
 
                 // Initialize -----------------------------------------
 
-                phaseshift::globalcursor_t nb_samples_total = 0;
+                int nb_samples_total = 0;
 
                 if (mode == int(mode_offline)) {
 
