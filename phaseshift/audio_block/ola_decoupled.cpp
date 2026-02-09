@@ -212,122 +212,88 @@ int phaseshift::ola_decoupled::flush(int chunk_size_max, phaseshift::ringbuffer<
         pout = &m_out;
     }
 
-    if (!m_status.flushing) {  // First time flushing
-        m_flush_nb_samples_total = m_frame_rolling.size();
-        if (m_extra_samples_to_flush > 0) {
-            m_flush_nb_samples_total += m_extra_samples_to_flush;
-        }
+    // First-time flush initialization
+    if (!m_status.flushing) {
+        m_flush_nb_samples_total = m_frame_rolling.size() + m_extra_samples_to_flush;
         m_status.flushing = true;
     }
 
-    int nb_samples_output_this_flush = 0;
+    int nb_output = 0;
+    const bool has_target = (m_target_output_length > 0);
 
-    // Main flush loop
-    // Continue while:
-    // - We have input remaining to process, OR
-    // - We have a target output length that hasn't been reached yet (for slow down)
     while (true) {
-        // Check termination: input exhausted AND (no target OR target reached)
-        bool input_exhausted = (m_flush_nb_samples_total <= 0);
-        bool target_reached = (m_target_output_length > 0 && m_output_length >= m_target_output_length);
-        bool no_target = (m_target_output_length <= 0);
-        
-        if (input_exhausted && (no_target || target_reached)) {
-            m_status.finished = true;
-            m_frame_rolling.clear();
-            break;
-        }
-        
-        // For speed up: if target reached, stop even if input remains
-        if (target_reached) {
+        // === TERMINATION CONDITIONS ===
+        const bool input_exhausted = (m_flush_nb_samples_total <= 0);
+        const bool target_reached = has_target && (m_output_length >= m_target_output_length);
+
+        // Stop if: target reached, OR input exhausted without a target to reach
+        if (target_reached || (input_exhausted && !has_target)) {
             m_status.finished = true;
             m_frame_rolling.clear();
             break;
         }
 
-        // Respect chunk_size_max
-        if (chunk_size_max > 0 && nb_samples_output_this_flush >= chunk_size_max) {
+        // Stop if chunk limit reached (streaming mode)
+        if (chunk_size_max > 0 && nb_output >= chunk_size_max) {
             break;
         }
 
-        // Fill rolling buffer to winlen with zeros if needed
-        int zeros_needed = winlen() - m_frame_rolling.size();
-        if (zeros_needed > 0) {
+        // === PREPARE FRAME ===
+        // Zero-pad rolling buffer to winlen if needed
+        if (m_frame_rolling.size() < winlen()) {
             m_status.padding_end = true;
-            m_frame_rolling.push_back(0.0f, zeros_needed);
+            m_frame_rolling.push_back(0.0f, winlen() - m_frame_rolling.size());
         }
 
-        // Rolling buffer should now be full
-        assert(m_frame_rolling.size() == winlen());
-
-        // Prepare frame for processing
         m_frame_input = m_frame_rolling;
         m_input_win_center_idx = m_input_win_center_idx_next;
-
-        // Update status BEFORE calling decoupled control methods
         m_status.input_win_center_idx = m_input_win_center_idx;
         m_output_win_center_idx = -m_first_frame_at_t0_samples_to_skip + m_output_length + (winlen()-1)/2;
         m_status.output_win_center_idx = m_output_win_center_idx;
-        
-        // Mark as last frame if this is near the end of input
-        if (m_flush_nb_samples_total > 0 && m_flush_nb_samples_total <= m_timestep) {
-            m_status.last_frame = true;
-        }
 
-        // Determine output size for this frame
+        // === COMPUTE OUTPUT SIZE ===
         int nb_samples_to_output = m_timestep;
-        if (m_target_output_length > 0) {
-            // With time scaling target: limit to remaining target
+        if (has_target) {
+            // Limit to remaining target
             phaseshift::globalcursor_t remaining = m_target_output_length - m_output_length;
             if (remaining < nb_samples_to_output) {
                 nb_samples_to_output = static_cast<int>(remaining);
                 m_status.last_frame = true;
             }
-        } else {
-            // Without time scaling: limit to remaining input (1:1 ratio)
-            if (m_flush_nb_samples_total > 0 && m_flush_nb_samples_total < nb_samples_to_output) {
-                nb_samples_to_output = m_flush_nb_samples_total;
-                m_status.last_frame = true;
-            }
+        } else if (m_flush_nb_samples_total > 0 && m_flush_nb_samples_total < nb_samples_to_output) {
+            // No target: limit to remaining input (1:1 ratio)
+            nb_samples_to_output = m_flush_nb_samples_total;
+            m_status.last_frame = true;
         }
 
-        // DECOUPLED DECISION 1: Should we produce output?
+        // === DECOUPLED CONTROL ===
         if (should_output(m_status)) {
-            int nb_output_this_step = output_one_frame(pout, nb_samples_to_output);
-            nb_samples_output_this_flush += nb_output_this_step;
+            nb_output += output_one_frame(pout, nb_samples_to_output);
         }
 
-        // DECOUPLED DECISION 2: Should we consume input?
         if (should_consume_input(m_status)) {
-            // We're consuming (not repeating) - this is speed up or normal mode
-            if (input_exhausted && (no_target || target_reached)) {
-                // Input exhausted and either no target or target reached
+            // Consume input (normal or speed-up mode)
+            if (input_exhausted) {
+                // No more input to consume - we're done
                 m_status.finished = true;
                 m_frame_rolling.clear();
                 break;
             }
             advance_input_cursor();
-            // Only decrement input counter when actually consuming
-            if (m_flush_nb_samples_total > 0) {
-                m_flush_nb_samples_total -= std::min(m_timestep, m_flush_nb_samples_total);
-            }
-        }
-        else {
-            // Not consuming (repeating frames) - this is slow down mode
-            if (input_exhausted && (no_target || target_reached)) {
-                // Input exhausted, not consuming, and no target to reach
-                // This is an edge case - terminate to avoid infinite loop
+            m_flush_nb_samples_total -= std::min(m_timestep, m_flush_nb_samples_total);
+        } else {
+            // Repeat frame (slow-down mode) - only valid if we have a target
+            if (input_exhausted && !has_target) {
+                // Safety: avoid infinite loop if slow-down without target
                 m_status.finished = true;
                 m_frame_rolling.clear();
                 break;
             }
-            // else: slow down case with target - continue repeating until target reached
         }
     }
 
-    proc_time_end(nb_samples_output_this_flush / fs());
-
-    return nb_samples_output_this_flush;
+    proc_time_end(nb_output / fs());
+    return nb_output;
 }
 
 int phaseshift::ola_decoupled::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max) {

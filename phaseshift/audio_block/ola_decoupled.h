@@ -254,6 +254,7 @@ namespace phaseshift {
                 m_extra_samples_to_skip = nbsamples;
             }
             inline void set_extra_samples_to_flush(int nbsamples) {
+                assert(nbsamples >= 0);
                 m_extra_samples_to_flush = nbsamples;
             }
 

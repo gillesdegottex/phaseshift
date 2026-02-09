@@ -160,6 +160,7 @@ namespace phaseshift {
             //  WARNING: Note the assymetry with the other fonctions below. process_available() is about input samples, whereas all the other ones are about output samples.
             virtual int process_input_available();
             //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
+            // TODO TODO TODO fetch_available() ALWAYS says hom many output samples are available, so proccess() and flush() should ALWAYS return about how many samples have been processed from the input.
             // TODO TODO TODO Return values shouldn't be about input values?
             //                * Might be just better that process(.) limits the input when there is not enough space in the internal output buffer.
             //                  Instead of providing process_input_available() and let it blow if not respected.
