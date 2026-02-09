@@ -88,7 +88,6 @@ int phaseshift::ola::output_one_frame(phaseshift::ringbuffer<float>* pout, int n
     // Push to output buffer
     if (pout->size() + nb_samples_to_output_remains > pout->size_max()) {
         m_failure_status.nb_output_buffer_overflows++;
-        DOUT << pout->size() << "/" << pout->size_max() << " nb_samples_to_output_remains=" << nb_samples_to_output_remains << std::endl;
         assert(pout->size() + nb_samples_to_output_remains <= pout->size_max() && 
                "phaseshift::ola::output_one_frame: There is not enough space in the output buffer");
     } else {
