@@ -24,7 +24,7 @@ namespace phaseshift {
         if (center_at_zero)
             nf += static_cast<float>(N-1)/2;
 
-        return a0 - (1.0f-a0)*std::cos(2*M_PI*nf/(N-1));  // TODO(GD) cosf
+        return a0 - (1.0f-a0)*std::cos(static_cast<value_type>(2*M_PI*nf/(N-1)));
     }
 
     template<typename value_type>
@@ -34,7 +34,7 @@ namespace phaseshift {
 
         float win_sum = 0.0f;
         for (int n = 0; n < N; ++n) {
-            win[n] = a0 - (1.0f-a0)*std::cos(2*M_PI*n/(N-1));  // TODO(GD) cosf
+            win[n] = a0 - (1.0f-a0)*std::cos(static_cast<value_type>(2*M_PI*n/(N-1)));
             win_sum += win[n];
         }
 
@@ -61,7 +61,7 @@ namespace phaseshift {
         if (center_at_zero)
             nf += static_cast<float>(N-1)/2;
 
-        return a0 - (1.0f-a0)*std::cos(2*M_PI*nf/(N-1));  // TODO(GD) cosf
+        return a0 - (1.0f-a0)*std::cos(static_cast<value_type>(2*M_PI*nf/(N-1)));
     }
 
     template<typename value_type>
@@ -71,7 +71,7 @@ namespace phaseshift {
 
         float win_sum = 0.0f;
         for (int n = 0; n < N; ++n) {
-            win[n] = a0 - (1.0f-a0)*std::cos(2*M_PI*n/(N-1));  // TODO(GD) cosf
+            win[n] = a0 - (1.0f-a0)*std::cos(static_cast<value_type>(2*M_PI*n/(N-1)));
             win_sum += win[n];
         }
 
@@ -99,7 +99,7 @@ namespace phaseshift {
 
         float win_sum = 0.0f;
         for (int n = 0; n < N; ++n) {
-            win[n] = a0 - 0.5f*std::cos(2*M_PI*n/(N-1)) + 0.5f*a*std::cos(4*M_PI*n/(N-1));  // TODO(GD) cosf
+            win[n] = a0 - 0.5f*std::cos(static_cast<value_type>(2*M_PI*n/(N-1))) + 0.5f*a*std::cos(static_cast<value_type>(4*M_PI*n/(N-1)));
             win_sum += win[n];
         }
 
