@@ -8,6 +8,7 @@
 #ifndef PHASESHIFT_CONTAINERS_UTILS_H_
 #define PHASESHIFT_CONTAINERS_UTILS_H_
 
+#include <cstdint>
 #include <phaseshift/utils.h>
 
 #include <cstring>
@@ -66,8 +67,8 @@ namespace phaseshift {
             assert(outfile.is_open());
 
             for (int n = 0; n < int(array.size()); ++n) {
-                int value = static_cast<float>(array[n]);
-                outfile.write(reinterpret_cast<char*>(&value), sizeof(float));
+                int32_t value = static_cast<int32_t>(array[n]);
+                outfile.write(reinterpret_cast<char*>(&value), sizeof(int32_t));
             }
             outfile.close();
         }
