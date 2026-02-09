@@ -5,8 +5,8 @@
 // If you don't have a copy of this license, please visit:
 //     https://github.com/gillesdegottex/phaseshift
 
-#ifndef PHASESHIFT_AUDIO_BLOCK_OLA_H_
-#define PHASESHIFT_AUDIO_BLOCK_OLA_H_
+#ifndef PHASESHIFT_AUDIO_BLOCK_OLA_DECOUPLED_H_
+#define PHASESHIFT_AUDIO_BLOCK_OLA_DECOUPLED_H_
 
 #include <phaseshift/utils.h>
 #include <phaseshift/containers/vector.h>
@@ -14,12 +14,14 @@
 #include <phaseshift/sigproc/window_functions.h>
 #include <phaseshift/audio_block/audio_block.h>
 
-#include <algorithm>
-
 namespace phaseshift {
 
-        // OverLap Add (OLA): Segment the input signal into frames and reconstruct a new signal based on the processed frames.
-        class ola : public phaseshift::audio_block {
+        // OverLap Add with Decoupled Input/Output control (OLA Decoupled):
+        // Extends the standard OLA to allow daughter classes to control the input/output ratio.
+        // This enables time stretching where:
+        //   - Slowing down: multiple outputs per input (should_consume_input returns false)
+        //   - Speeding up: skip outputs (should_output returns false)
+        class ola_decoupled : public phaseshift::audio_block {
 
           public:
             struct proc_status {
@@ -71,8 +73,28 @@ namespace phaseshift {
           protected:
             phaseshift::vector<float> m_win;
 
-            // This function should be overwritten by the custom class that inherit phaseshift::ola
-            virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status);
+            // This function should be overwritten by the custom class that inherit phaseshift::ola_decoupled
+            virtual void proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola_decoupled::proc_status& status);
+
+            // =========================================================================
+            // DECOUPLED CONTROL INTERFACE - Override these in daughter classes
+            // =========================================================================
+
+            // Called when input buffer is full. Should we produce an output frame?
+            // Return false to skip output (for speeding up).
+            // Default: always produce output.
+            virtual bool should_output(const proc_status& status) {
+                (void)status;
+                return true;
+            }
+
+            // Called after output is produced. Should we consume the input (advance input cursor)?
+            // Return false to produce another output from the same input (for slowing down).
+            // Default: always consume input.
+            virtual bool should_consume_input(const proc_status& status) {
+                (void)status;
+                return true;
+            }
 
           private:
             proc_status m_status;
@@ -86,7 +108,7 @@ namespace phaseshift {
             phaseshift::ringbuffer<float> m_out;
 
             int m_extra_samples_to_skip = 0;
-            int m_first_frame_at_t0_samples_to_skip = 0;  // TODO TODO TODO Clean this bcs it is not used only as first_frame_at_t0
+            int m_first_frame_at_t0_samples_to_skip = 0;
             int m_extra_samples_to_flush = 0;
             int m_flush_nb_samples_total = 0;
 
@@ -97,7 +119,11 @@ namespace phaseshift {
             phaseshift::globalcursor_t m_output_win_center_idx = 0;
             phaseshift::globalcursor_t m_target_output_length = -1;  // Absolute target output length in samples (-1 = disabled)
 
-            int proc_win(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
+            // Core OLA output step: process frame and add to OLA accumulator
+            int output_one_frame(phaseshift::ringbuffer<float>* pout, int nb_samples_to_output);
+            
+            // Advance input cursor by timestep
+            void advance_input_cursor();
 
             // Member variables for real-time processing
             int m_realttime_prepad_latency_remaining = -1;
@@ -115,11 +141,11 @@ namespace phaseshift {
                 return m_status;
             }
 
-            ola();
+            ola_decoupled();
 
           public:
 
-            virtual ~ola();
+            virtual ~ola_decoupled();
 
             inline int winlen() const {return m_win.size();}
             inline const phaseshift::vector<float>& win() const {return m_win;}
@@ -160,11 +186,6 @@ namespace phaseshift {
             //  WARNING: Note the assymetry with the other fonctions below. process_available() is about input samples, whereas all the other ones are about output samples.
             virtual int process_input_available();
             //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
-            // TODO TODO TODO fetch_available() ALWAYS says hom many output samples are available, so proccess() and flush() should ALWAYS return about how many samples have been processed from the input.
-            // TODO TODO TODO Return values shouldn't be about input values?
-            //                * Might be just better that process(.) limits the input when there is not enough space in the internal output buffer.
-            //                  Instead of providing process_input_available() and let it blow if not respected.
-            //                * During time scaling, it also depends on the available space in the frame buffer...
             virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples that remains to be flushed/outputted.
             inline int flush_available() {
@@ -203,20 +224,10 @@ namespace phaseshift {
 
             PHASESHIFT_PROF(acbench::time_elapsed dbg_proc_frame_time;)
 
-            friend class ola_builder;
+            friend class ola_decoupled_builder;
         };
 
-        namespace dev {
-            // This function implements all the possible tests an OLA block should pass:
-            //    * Can process noise, silence, click, saturated signal, sinusoid, harmonics
-            //    * TODO Test speed?
-            //    * (audio_block_ola_builder_test_singlethread() tests for singlethreaded building and processing)
-            //    * (audio_block_builder_test() tests for multithreading)
-            enum {option_none, option_test_latency=1};
-            void audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold=phaseshift::db2lin(-120.0f), int options=option_test_latency);
-        }
-
-        class ola_builder : public phaseshift::audio_block_builder {
+        class ola_decoupled_builder : public phaseshift::audio_block_builder {
             protected:
             int m_winlen = -1;
             int m_timestep = -1;
@@ -243,26 +254,26 @@ namespace phaseshift {
                 m_extra_samples_to_skip = nbsamples;
             }
             inline void set_extra_samples_to_flush(int nbsamples) {
+                assert(nbsamples >= 0);
                 m_extra_samples_to_flush = nbsamples;
             }
 
             inline int winlen() const {return m_winlen;}
             inline int timestep() const {return m_timestep;}
 
-            ola* build(ola* pab);
-            ola* build() {return build(new phaseshift::ola());}
+            ola_decoupled* build(ola_decoupled* pab);
+            ola_decoupled* build() {return build(new phaseshift::ola_decoupled());}
         };
 
         namespace dev {
-            // This function implements all the possible tests an OLA block builder should pass:
-            //    * Handles multithreaded building and processing
-            //    * Handles various fs
-            //    * Handles valid combinations of window lengths and timesteps
-            //    * Handles various chunk sizes
-            void audio_block_ola_builder_test_singlethread();
-            void audio_block_ola_builder_test(int nb_threads=3);
+            // Test options (same as ola.h)
+            enum {option_none_decoupled=0, option_test_latency_decoupled=1};
+            // Test function for ola_decoupled
+            void audio_block_ola_decoupled_test(phaseshift::ola_decoupled* pab, int chunk_size, float resynthesis_threshold=phaseshift::db2lin(-120.0f), int options=option_test_latency_decoupled);
+            void audio_block_ola_decoupled_builder_test_singlethread();
+            void audio_block_ola_decoupled_builder_test(int nb_threads=4);
         }
 
 }  // namespace phaseshift
 
-#endif  // PHASESHIFT_AUDIO_BLOCK_OLA_H_
+#endif  // PHASESHIFT_AUDIO_BLOCK_OLA_DECOUPLED_H_

@@ -327,6 +327,11 @@ set_target_properties(phaseshift
     target_link_libraries(phaseshift_audio_block_ola_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_audio_block_ola_test COMMAND phaseshift_audio_block_ola_test)
 
+    add_executable(phaseshift_audio_block_ola_decoupled_test phaseshift/audio_block/ola_decoupled_test.cpp ${PHASESHIFT_SOURCES_TESTS})
+    target_include_directories(phaseshift_audio_block_ola_decoupled_test PUBLIC ${PHASESHIFT_INCLUDES})
+    target_link_libraries(phaseshift_audio_block_ola_decoupled_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    add_test(NAME phaseshift_audio_block_ola_decoupled_test COMMAND phaseshift_audio_block_ola_decoupled_test)
+
     add_executable(phaseshift_lookup_table_test phaseshift/lookup_table_test.cpp)
     target_link_libraries(phaseshift_lookup_table_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_lookup_table_test COMMAND phaseshift_lookup_table_test)
