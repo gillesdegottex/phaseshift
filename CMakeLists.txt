@@ -30,7 +30,7 @@ message(STATUS "  CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR})
 
 # The lib itself --------------------------------------------------------------
 
-add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c)
+add_library(${PROJECT_NAME} STATIC ${PROJECT_NAME}/utils.cpp ${PROJECT_NAME}/dev/time_elapsed_summary.cpp ${PROJECT_NAME}/audio_block/audio_block.cpp ${PROJECT_NAME}/audio_block/ol.cpp ${PROJECT_NAME}/audio_block/ola.cpp ${PROJECT_NAME}/audio_block/ola_decoupled.cpp ${PROJECT_NAME}/audio_block/tinywavfile.cpp ${PROJECT_NAME}/lookup_table.cpp ${PROJECT_NAME}/sigproc/clipper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ext/tinywav/tinywav.c)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Defines ---------------------------------------------------------------------
@@ -328,8 +328,8 @@ set_target_properties(phaseshift
     add_test(NAME phaseshift_audio_block_ola_test COMMAND phaseshift_audio_block_ola_test)
 
     add_executable(phaseshift_audio_block_ola_decoupled_test phaseshift/audio_block/ola_decoupled_test.cpp ${PHASESHIFT_SOURCES_TESTS})
-    target_include_directories(phaseshift_audio_block_ola_decoupled_test PUBLIC ${PHASESHIFT_INCLUDES})
-    target_link_libraries(phaseshift_audio_block_ola_decoupled_test PRIVATE ${PHASESHIFT_LIBRARIES} Catch2::Catch2WithMain)
+    target_include_directories(phaseshift_audio_block_ola_decoupled_test PUBLIC phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_audio_block_ola_decoupled_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
     add_test(NAME phaseshift_audio_block_ola_decoupled_test COMMAND phaseshift_audio_block_ola_decoupled_test)
 
     add_executable(phaseshift_lookup_table_test phaseshift/lookup_table_test.cpp)
