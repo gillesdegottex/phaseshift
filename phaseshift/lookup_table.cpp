@@ -18,17 +18,17 @@ phaseshift::lookup_table::~lookup_table() {
 // Inheriting classes -----------------------------------------------------------
 
 phaseshift::lookup_table_lin012db::lookup_table_lin012db() {
-    phaseshift::lookup_table::initialize(this, phaseshift::float32::eps(), 1.0, 300*4);
+    phaseshift::lookup_table::initialize(this, phaseshift::float32::eps(), 1.0f, 300*4);
 }
 
 phaseshift::lookup_table_db2lin01::lookup_table_db2lin01() {
-    phaseshift::lookup_table::initialize(this, -300.0, 0.0, 300*4);
+    phaseshift::lookup_table::initialize(this, -300.0f, 0.0f, 300*4);
 }
 
 phaseshift::lookup_table_cos::lookup_table_cos() {
-    phaseshift::lookup_table::initialize(this, 0.0, phaseshift::twopi, 1000);  // was 50
+    phaseshift::lookup_table::initialize(this, 0.0f, static_cast<float>(phaseshift::twopi), 1000);  // was 50
 }
 
 phaseshift::lookup_table_sin::lookup_table_sin() {
-    phaseshift::lookup_table::initialize(this, 0.0, phaseshift::twopi, 1000);  // was 50
+    phaseshift::lookup_table::initialize(this, 0.0f, static_cast<float>(phaseshift::twopi), 1000);  // was 50
 }

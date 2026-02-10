@@ -183,9 +183,10 @@ namespace phaseshift {
             }
 
             //! Returns the number of samples that can be inputted in the next call to process(.), so that the internal output buffer doesn't blow up.
-            //  WARNING: Note the assymetry with the other fonctions below. process_available() is about input samples, whereas all the other ones are about output samples.
             virtual int process_input_available();
-            //! All input samples are always consumed. This function returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
+            //! All input samples are always consumed.
+            //  This function returns how many samples of the input were consummed.
+            //  You can get the number of samples outputted by calling retrieve_available().
             virtual int process(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples that remains to be flushed/outputted.
             inline int flush_available() {
@@ -193,10 +194,12 @@ namespace phaseshift {
                 if (m_target_output_length > 0) {
                     target_output_length = m_target_output_length;
                 }
-                return target_output_length - m_output_length;
+                const phaseshift::globalcursor_t remaining = target_output_length - m_output_length;
+                return static_cast<int>(remaining);
             }
             //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
-            //  Returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
+            //  Returns how many extra zeros were inputted.
+            //  You can get the number of samples outputted by calling retrieve_available().
             virtual int flush(int chunk_size_max=-1, phaseshift::ringbuffer<float>* pout=nullptr);
             //! Returns the number of samples ready for output, that can be retrieved in a single call to retrieve(.)
             inline int retrieve_available() const {return m_out.size();}

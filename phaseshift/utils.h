@@ -238,6 +238,8 @@ namespace phaseshift {
                 assert(!std::isnan(data[n]));
                 assert(!std::isinf(data[n]));
             }
+            #else
+            (void)data;
             #endif
         }
 

@@ -10,6 +10,8 @@
 #include <phaseshift/audio_block/tinywavfile.h>
 #include <phaseshift/sigproc/sigproc.h>
 
+#include <limits>
+
 void phaseshift::ola::proc_frame(const phaseshift::vector<float>& in, phaseshift::vector<float>* pout, const phaseshift::ola::proc_status& status) {
     (void)status;
     phaseshift::vector<float>& out = *pout;
@@ -112,8 +114,6 @@ void phaseshift::ola::advance_input_cursor() {
 }
 
 int phaseshift::ola::process_input_available() {
-    // That's the expression just for a standard OLA processing.
-    // TODO: For time stretching, this should account for the output/input ratio.
     int available_out_space = m_out.size_max() - m_out.size();
     int nb_frames_possible = std::floor(available_out_space / m_timestep);
     return nb_frames_possible * m_timestep;
@@ -132,15 +132,14 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
 
     m_input_length += in.size();
 
-    int nb_output = 0;
-    int in_n = 0;
+    int nb_in = 0;
     
-    while (in_n < in.size()) {
+    while (nb_in < in.size()) {
 
         // Fill rolling buffer up to winlen, without over-reading `in`
-        int nb_samples_for_winlen = std::min<int>(winlen() - m_frame_rolling.size(), in.size() - in_n);
-        m_frame_rolling.push_back(in, in_n, nb_samples_for_winlen);
-        in_n += nb_samples_for_winlen;
+        int nb_samples_for_winlen = std::min<int>(winlen() - m_frame_rolling.size(), in.size() - nb_in);
+        m_frame_rolling.push_back(in, nb_in, nb_samples_for_winlen);
+        nb_in += nb_samples_for_winlen;
 
         // When buffer is full, enter the DECOUPLED CONTROL LOOP
         while (m_frame_rolling.size() == winlen()) {
@@ -166,7 +165,7 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
                 // Not enough space - return what we have, caller should drain and retry
                 // Note: we don't consume input, so next call will continue from here
                 proc_time_end(in.size() / fs());
-                return nb_output;
+                return nb_in;
             }
 
             // DECOUPLED DECISION 1: Should we produce output?
@@ -181,7 +180,6 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
                     }
                 }
                 int nb_output_this_step = output_one_frame(pout, nb_samples_to_output);
-                nb_output += nb_output_this_step;
             }
 
             // DECOUPLED DECISION 2: Should we consume input?
@@ -197,7 +195,7 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
 
     proc_time_end(in.size() / fs());
 
-    return nb_output;
+    return nb_in;
 }
 
 int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* pout) {
@@ -218,6 +216,7 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
     }
 
     int nb_output = 0;
+    int nb_in = 0;
     const bool has_target = (m_target_output_length > 0);
 
     while (true) {
@@ -242,6 +241,7 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
         if (m_frame_rolling.size() < winlen()) {
             m_status.padding_end = true;
             m_frame_rolling.push_back(0.0f, winlen() - m_frame_rolling.size());
+            nb_in += winlen() - m_frame_rolling.size();
         }
 
         m_frame_input = m_frame_rolling;
@@ -292,7 +292,7 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
     }
 
     proc_time_end(nb_output / fs());
-    return nb_output;
+    return nb_in;
 }
 
 int phaseshift::ola::retrieve(phaseshift::ringbuffer<float>* pout, int chunk_size_max) {
@@ -324,12 +324,12 @@ void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, p
     phaseshift::ringbuffer<float> chunk_in;
     chunk_in.resize_allocation(chunk_size);
 
-    int in_n = 0;
-    while (in_n < in.size()) {
-        int chunk_to_process = std::min<int>(chunk_size, in.size() - in_n);
+    int nb_in = 0;
+    while (nb_in < in.size()) {
+        int chunk_to_process = std::min<int>(chunk_size, in.size() - nb_in);
         chunk_in.clear();
-        chunk_in.push_back(in, in_n, chunk_to_process);
-        in_n += chunk_to_process;
+        chunk_in.push_back(in, nb_in, chunk_to_process);
+        nb_in += chunk_to_process;
 
         process(chunk_in);
 
@@ -524,6 +524,8 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 phaseshift::ringbuffer<float> signal_in;
                 signal_in.resize_allocation(fs * duration_s);
                 signal_in.clear();
+                const float pi = static_cast<float>(M_PI);
+
                 if (synth == synth_noise) {
                     phaseshift::push_back_noise_normal(signal_in, signal_in.size_max(), gen, 0.0f, 0.2f, 0.99f);
                 } else if (synth == synth_silence) {
@@ -537,19 +539,19 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     signal_in[0] = 1.0f;
                 } else if (synth == synth_sin) {
                     signal_in.push_back(0.0f, signal_in.size_max());
-                    float phase = 2.0f * M_PI * phase_dist(gen);
+                    float phase = 2.0f * pi * phase_dist(gen);
                     for (int n = 0; n < signal_in.size(); ++n) {
-                        signal_in[n] = 0.9f * std::sin(2.0f * M_PI * 440.0f * n / fs + phase);
+                        signal_in[n] = 0.9f * std::sin(2.0f * pi * 440.0f * n / fs + phase);
                     }
                 } else if (synth == synth_harmonics) {
                     signal_in.push_back(0.0f, signal_in.size_max());
                     float f0 = 110.0f;
-                    float nb_harmonics = int((0.5*fs-f0)/f0);
-                    float amplitude = 0.9f/nb_harmonics;
+                    int nb_harmonics = static_cast<int>((0.5f * fs - f0) / f0);
+                    float amplitude = 0.9f / static_cast<float>(nb_harmonics);
                     for (int h = 0; h <= nb_harmonics; ++h) {
-                        float phase = 2.0f * M_PI * phase_dist(gen);
+                        float phase = 2.0f * pi * phase_dist(gen);
                         for (int n = 0; n < signal_in.size(); ++n) {
-                            signal_in[n] += amplitude * std::sin(2.0f * M_PI * h * f0 * n / fs + phase);
+                            signal_in[n] += amplitude * std::sin(2.0f * pi * h * f0 * n / fs + phase);
                         }
                     }
                 }
@@ -674,5 +676,5 @@ void phaseshift::dev::audio_block_ola_builder_test_singlethread() {
 }
 
 void phaseshift::dev::audio_block_ola_builder_test(int nb_threads) {
-    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ola_builder_test_singlethread, 1);
+    phaseshift::dev::audio_block_builder_test(phaseshift::dev::audio_block_ola_builder_test_singlethread, nb_threads);
 }
