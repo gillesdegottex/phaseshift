@@ -198,10 +198,10 @@ namespace phaseshift {
             //! flushing might trigger a lot of calls for processing output frames. In a non-offline scenario, it might be better to call flush(.) with a chunk size
             //  Returns how many samples were outputted (either inside the internal buffer or in the custom output buffer pout).
             virtual int flush(int chunk_size_max=-1, phaseshift::ringbuffer<float>* pout=nullptr);
-            //! Returns the number of samples ready for output, that can be fetched in a single call to fetch(.)
-            inline int fetch_available() const {return m_out.size();}
-            //! Return the number of samples actually fetched.
-            int fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
+            //! Returns the number of samples ready for output, that can be retrieved in a single call to retrieve(.)
+            inline int retrieve_available() const {return m_out.size();}
+            //! Return the number of samples actually retrieved.
+            int retrieve(phaseshift::ringbuffer<float>* pout, int chunk_size_max=-1);
 
             //! Convenience function for offline processing calling the primitives in the right order
             virtual void process_offline(const phaseshift::ringbuffer<float>& in, phaseshift::ringbuffer<float>* pout);

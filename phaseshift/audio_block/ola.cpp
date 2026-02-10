@@ -295,7 +295,7 @@ int phaseshift::ola::flush(int chunk_size_max, phaseshift::ringbuffer<float>* po
     return nb_output;
 }
 
-int phaseshift::ola::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_max) {
+int phaseshift::ola::retrieve(phaseshift::ringbuffer<float>* pout, int chunk_size_max) {
 
     if (m_out.size() == 0) {
         return 0;
@@ -306,7 +306,7 @@ int phaseshift::ola::fetch(phaseshift::ringbuffer<float>* pout, int chunk_size_m
         chunk_size = std::min<int>(chunk_size, chunk_size_max);
     }
 
-    assert(pout->size() + chunk_size <= pout->size_max() && "phaseshift::ola::fetch: There is not enough space in the output buffer");
+    assert(pout->size() + chunk_size <= pout->size_max() && "phaseshift::ola::retrieve: There is not enough space in the output buffer");
 
     pout->push_back(m_out, 0, chunk_size);
     m_out.pop_front(chunk_size);
@@ -333,14 +333,14 @@ void phaseshift::ola::process_offline(const phaseshift::ringbuffer<float>& in, p
 
         process(chunk_in);
 
-        while (fetch(pout) > 0) {}
+        while (retrieve(pout) > 0) {}
     }
 
     // Flush remaining data in chunks
     int fetched = 1;
     while (fetched > 0) {
         flush(chunk_size);
-        fetched = fetch(pout, chunk_size);
+        fetched = retrieve(pout, chunk_size);
     }
 }
 
@@ -350,7 +350,7 @@ void phaseshift::ola::process_realtime(const phaseshift::ringbuffer<float>& in, 
 
     process(in);
 
-    int available = fetch_available();
+    int available = retrieve_available();
 
     assert(m_realttime_prepad_latency_remaining >= 0);
     if (m_realttime_prepad_latency_remaining > 0) {
@@ -362,17 +362,17 @@ void phaseshift::ola::process_realtime(const phaseshift::ringbuffer<float>& in, 
         m_realttime_prepad_latency_remaining -= zeros_to_add;
 
         if (to_fetch > 0 && available >= to_fetch) {
-            fetch(pout, to_fetch);
+            retrieve(pout, to_fetch);
         }
 
     } else if (available >= chunk_size_req) {
-        // Normal fetch
-        fetch(pout, chunk_size_req);
+        // Normal retrieve
+        retrieve(pout, chunk_size_req);
 
     } else {
-        // Post-pad: fetch what's available, pad the rest
+        // Post-pad: retrieve what's available, pad the rest
         int to_fetch = std::min(chunk_size_req, available);
-        fetch(pout, to_fetch);
+        retrieve(pout, to_fetch);
 
         int zeros_to_add = chunk_size_req - to_fetch;
         if (zeros_to_add > 0) {
@@ -576,8 +576,8 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                             pab->flush(chunk_size);
                         }
 
-                        while (pab->fetch_available() > 0) {
-                            pab->fetch(&signal_out, chunk_size);
+                        while (pab->retrieve_available() > 0) {
+                            pab->retrieve(&signal_out, chunk_size);
                         }
                     }
                     
