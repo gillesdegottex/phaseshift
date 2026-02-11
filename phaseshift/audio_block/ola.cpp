@@ -133,6 +133,7 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
     m_input_length += in.size();
 
     int nb_in = 0;
+    int nb_output = 0;
     
     while (nb_in < in.size()) {
 
@@ -180,6 +181,7 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
                     }
                 }
                 int nb_output_this_step = output_one_frame(pout, nb_samples_to_output);
+                nb_output += nb_output_this_step;
             }
 
             // DECOUPLED DECISION 2: Should we consume input?
@@ -193,8 +195,7 @@ int phaseshift::ola::process(const phaseshift::ringbuffer<float>& in, phaseshift
         }
     }
 
-    proc_time_end(in.size() / fs());
-
+    proc_time_end(nb_output / fs());
     return nb_in;
 }
 
