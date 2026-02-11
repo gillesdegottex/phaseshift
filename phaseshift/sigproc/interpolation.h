@@ -169,16 +169,17 @@ namespace phaseshift {
     */
     template<typename value_type>
     inline value_type raisedcosin_weight(value_type t, value_type beta) {
-        value_type beta2 = 2*beta;
+        const value_type beta2 = 2*beta;
+        const value_type oneoverbeta2 = static_cast<value_type>(1) / beta2;
         value_type base;
         value_type w;
 
-        if (std::abs(t) == 1/beta2) {
-            w = (static_cast<value_type>(M_PI) / 4) * sinc(1.0/beta2);
+        if (std::abs(t) == oneoverbeta2) {
+            w = (static_cast<value_type>(M_PI) / 4) * sinc(oneoverbeta2);
         } else {
             w = sinc(t) * std::cos(static_cast<value_type>(M_PI)*beta*t);
             base = beta2*t;
-            w /= 1.0 - base*base;
+            w /= static_cast<value_type>(1) - base*base;
         }
 
         // (no need to add an extra window function like with the sinc+hamming, there is already one made by the cosine)

@@ -115,7 +115,7 @@ void phaseshift::ola::advance_input_cursor() {
 
 int phaseshift::ola::process_input_available() {
     int available_out_space = m_out.size_max() - m_out.size();
-    int nb_frames_possible = std::floor(available_out_space / m_timestep);
+    int nb_frames_possible = available_out_space / m_timestep;
     return nb_frames_possible * m_timestep;
 }
 
@@ -502,6 +502,7 @@ phaseshift::ola* phaseshift::ola_builder::build(phaseshift::ola* pab) {
 void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size, float resynthesis_threshold, int options) {
 
     float duration_s = 3.0f;
+    assert(duration_s > 0.0f);
 
     // Static tests
     phaseshift::dev::test_require(pab->fs() > 0.0f, "audio_block_ola_test: fs() <= 0.0f");
@@ -510,6 +511,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
     std::mt19937 gen(0);
 
     float fs = pab->fs();
+    assert(fs > 0.0f);
 
     enum {mode_offline=0, mode_streaming=1, mode_realtime=2};
     enum {synth_noise=0, synth_silence=1, synth_click=2, synth_saturated=3, synth_sin=4, synth_harmonics=5};
@@ -523,7 +525,7 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 // Generate input signal
                 std::uniform_real_distribution<float> phase_dist(0.0f, 1.0f);
                 phaseshift::ringbuffer<float> signal_in;
-                signal_in.resize_allocation(fs * duration_s);
+                signal_in.resize_allocation(static_cast<int>(fs * duration_s));
                 signal_in.clear();
                 const float pi = static_cast<float>(M_PI);
 
@@ -541,8 +543,9 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                 } else if (synth == synth_sin) {
                     signal_in.push_back(0.0f, signal_in.size_max());
                     float phase = 2.0f * pi * phase_dist(gen);
+                    float mult = 2.0f * pi * 440.0f / fs;
                     for (int n = 0; n < signal_in.size(); ++n) {
-                        signal_in[n] = 0.9f * std::sin(2.0f * pi * 440.0f * n / fs + phase);
+                        signal_in[n] = 0.9f * std::sin(mult * static_cast<float>(n) + phase);
                     }
                 } else if (synth == synth_harmonics) {
                     signal_in.push_back(0.0f, signal_in.size_max());
@@ -551,8 +554,9 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     float amplitude = 0.9f / static_cast<float>(nb_harmonics);
                     for (int h = 0; h <= nb_harmonics; ++h) {
                         float phase = 2.0f * pi * phase_dist(gen);
+                        float mult = 2.0f * pi * h * f0 / fs;
                         for (int n = 0; n < signal_in.size(); ++n) {
-                            signal_in[n] += amplitude * std::sin(2.0f * pi * h * f0 * n / fs + phase);
+                            signal_in[n] += amplitude * std::sin(mult * static_cast<float>(n) + phase);
                         }
                     }
                 }
@@ -571,9 +575,11 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
                     while (!pab->finished()) {
                         if (pab->input_length() < signal_in.size()) {
-                            int chunk_to_process = std::min<int>(chunk_size, signal_in.size() - pab->input_length());
+                            int remaining_int = signal_in.size() - static_cast<int>(pab->input_length());
+                            int chunk_to_process = std::min<int>(chunk_size, remaining_int);
+                            int input_offset = static_cast<int>(pab->input_length());
                             chunk_in.clear();
-                            chunk_in.push_back(signal_in, pab->input_length(), chunk_to_process);
+                            chunk_in.push_back(signal_in, input_offset, chunk_to_process);
                             pab->process(chunk_in);
                         } else {
                             pab->flush(chunk_size);
@@ -589,9 +595,11 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
                     chunk_in.resize_allocation(chunk_size);
 
                     while (signal_out.size() < signal_in.size()) {
-                        int chunk_size_req = std::min<int>(chunk_size, signal_in.size() - pab->input_length());
+                        int remaining_int = signal_in.size() - static_cast<int>(pab->input_length());
+                        int chunk_size_req = std::min<int>(chunk_size, remaining_int);
+                        int input_offset = static_cast<int>(pab->input_length());
                         chunk_in.clear();
-                        chunk_in.push_back(signal_in, pab->input_length(), chunk_size_req);
+                        chunk_in.push_back(signal_in, input_offset, chunk_size_req);
                         int signal_out_size_before = signal_out.size();
 
                         pab->process_realtime(chunk_in, &signal_out);

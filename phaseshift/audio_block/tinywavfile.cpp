@@ -9,6 +9,9 @@
 
 #include <cstring>
 #include <cassert>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
 
 phaseshift::tinywavfile::tinywavfile(int chunk_size_max) {
     assert(chunk_size_max > 0);
@@ -160,7 +163,10 @@ phaseshift::tinywavfile_writer* phaseshift::tinywavfile_writer_builder::build(ph
     }
 
     // Open file for writing
-    if (tinywav_open_write(&pab->m_tw, m_nbchannels, static_cast<int32_t>(m_fs), sampFmt, TW_INTERLEAVED, m_file_path.c_str()) != 0) {
+    const int16_t nbchannels = static_cast<int16_t>(
+        std::clamp(m_nbchannels, 1, static_cast<int>(std::numeric_limits<int16_t>::max())));
+    const int32_t sample_rate = static_cast<int32_t>(m_fs);
+    if (tinywav_open_write(&pab->m_tw, nbchannels, sample_rate, sampFmt, TW_INTERLEAVED, m_file_path.c_str()) != 0) {
         delete pab;
         return nullptr;
     }

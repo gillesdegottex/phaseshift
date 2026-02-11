@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <cstring>
 #include <map>
+#include <algorithm>
+#include <limits>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/vector.h>
@@ -26,11 +28,12 @@ namespace nb = nanobind;
 
 inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<float>* in) {
     // TODO(GD) Remove extra copy by providing the buffer to the phaseshift::ringbuffer ctor
-    in->resize_allocation(_in.size());
+    const int in_size = static_cast<int>(_in.size());
+    in->resize_allocation(in_size);
     if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 32) {
-        in->push_back(static_cast<const float*>(_in.data()), _in.size());
+        in->push_back(static_cast<const float*>(_in.data()), in_size);
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 64) {
-        in->push_back(static_cast<const double*>(_in.data()), _in.size());
+        in->push_back(static_cast<const double*>(_in.data()), in_size);
     } else {
         assert(_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float  && "Only float32 or float64 types supported.");
         assert(((_in.dtype().bits == 32) || (_in.dtype().bits == 64)) && "Only float32 or float64 types supported.");
@@ -50,20 +53,21 @@ inline nb::ndarray<nb::numpy, float> ringbuffer2ndarray(const phaseshift::ringbu
 
 inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<std::complex<float>>* in) {
     // TODO(GD) Remove extra copy by providing the buffer to the phaseshift::vector ctor
-    in->resize_allocation(_in.size());
+    const int in_size = static_cast<int>(_in.size());
+    in->resize_allocation(in_size);
     in->clear();
     if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Complex && _in.dtype().bits == 64) {
         // TODO(GD) SPEEDUP We can use memcpy
-        for (int k=0; k < int(_in.size()); ++k) {
+        for (int k=0; k < in_size; ++k) {
             float real = ((float*)(_in.data()))[2*k];
             float imag = ((float*)(_in.data()))[2*k+1];
             std::complex<float> c(real, imag);
             in->push_back(c);
         }
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Complex && _in.dtype().bits == 128) {
-        for (int k=0; k < int(_in.size()); ++k) {
-            float real = ((double*)(_in.data()))[2*k];
-            float imag = ((double*)(_in.data()))[2*k+1];
+        for (int k=0; k < in_size; ++k) {
+            float real = static_cast<float>(((double*)(_in.data()))[2*k]);
+            float imag = static_cast<float>(((double*)(_in.data()))[2*k+1]);
             in->push_back(std::complex<float>(real, imag));
         }
     } else {
@@ -75,14 +79,15 @@ inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<std::com
 
 inline void ndarray2vector(const nb::ndarray<>& _in, phaseshift::vector<float>* in) {
     // TODO(GD) SPEEDUP Remove extra copy by providing the buffer to the phaseshift::vector ctor
-    in->resize_allocation(_in.size());
+    const int in_size = static_cast<int>(_in.size());
+    in->resize_allocation(in_size);
     in->clear();
     if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 32) {
-        in->push_back(static_cast<const float*>(_in.data()), _in.size());
+        in->push_back(static_cast<const float*>(_in.data()), in_size);
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 64) {
-        in->resize(_in.size());
-        for (int k=0; k < int(_in.size()); ++k) {
-            float real = ((const double*)(_in.data()))[k];
+        in->resize(in_size);
+        for (int k=0; k < in_size; ++k) {
+            float real = static_cast<float>(((const double*)(_in.data()))[k]);
             in->data()[k] = real;
         }
     } else {

@@ -35,7 +35,7 @@ namespace phaseshift {
         //! Convenience function
         inline void push_back(const double* array, int array_size) {
             for (int n=0; n < array_size; ++n)
-                push_back(array[n]);
+                push_back(static_cast<value_type>(array[n]));
         }
         inline void push_back(const phaseshift::vector<value_type>& v) {
             push_back(v.data(), v.size());

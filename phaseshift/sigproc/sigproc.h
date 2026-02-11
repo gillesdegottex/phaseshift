@@ -248,7 +248,8 @@ namespace phaseshift {
     template<class array_type>
     inline void timeshift_hspec(array_type* parray, float nbsamplef) {
         int dftlen = (parray->size()-1)*2;
-        float phase_shift_coef = nbsamplef * 2*M_PI / static_cast<float>(dftlen);
+        const float two_pi = static_cast<float>(2.0 * M_PI);
+        float phase_shift_coef = nbsamplef * two_pi / static_cast<float>(dftlen);
 
         #if 1
             float phase_shift_coef_idxf = phase_shift_coef*g_lt_cos_x2i;

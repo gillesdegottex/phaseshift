@@ -8,12 +8,11 @@
 #ifndef PHASESHIFT_LOOKUP_TABLE_H_
 #define PHASESHIFT_LOOKUP_TABLE_H_
 
-#include <cstddef>
 #include <cmath>
 #include <iomanip>
 #include <vector>
 #include <utility>
-// #include <fstream>
+#include <limits>
 
 #include <phaseshift/utils.h>
 #include <acbench/time_elapsed.h>
@@ -70,8 +69,8 @@ namespace phaseshift {
 
             int n = 0;
             validation_stats stats;
-            stats.ymin = phaseshift::float32::max();
-            stats.ymax = phaseshift::float32::min();
+            stats.ymin = std::numeric_limits<float>::max();
+            stats.ymax = std::numeric_limits<float>::min();
             stats.abserr_max = 0.0;
             stats.abserr_mean = 0.0;
             stats.relerr_max = 0.0;
@@ -80,8 +79,8 @@ namespace phaseshift {
                 double estim = lt.evaluate_lookup_table(x);
                 double ref = lt.evaluate_ground_truth(x);
                 double err = ref-estim;
-                stats.ymin = std::min<float>(stats.ymin, ref);
-                stats.ymax = std::max<float>(stats.ymax, ref);
+                stats.ymin = std::min<float>(stats.ymin, static_cast<float>(ref));
+                stats.ymax = std::max<float>(stats.ymax, static_cast<float>(ref));
 
                 stats.abserr_max = std::max<double>(stats.abserr_max, std::abs(err));
                 stats.abserr_mean += std::abs(err);
