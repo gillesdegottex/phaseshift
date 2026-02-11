@@ -78,7 +78,7 @@ namespace phaseshift {
             assert(m_n < m_pts->size());
             assert(m_n+1 < m_pts->size());
 
-            float g = (t-(*m_pts)[m_n]) / ((*m_pts)[m_n+1]-(*m_pts)[m_n]);
+            float g = static_cast<float>((t-(*m_pts)[m_n]) / ((*m_pts)[m_n+1]-(*m_pts)[m_n]));
 
             return (1.0f-g)*(*m_pvs)[m_n] + g*(*m_pvs)[m_n+1];
         }
