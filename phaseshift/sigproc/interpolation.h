@@ -57,30 +57,44 @@ namespace phaseshift {
             return (m_pvs != nullptr) && (m_pvs->size() > 0);
         }
 
-        inline float operator()(double t) {
+        inline float get_value(double t, bool auto_increase=true) {
             assert(m_pts != nullptr);
             assert(m_pvs != nullptr);
             assert(m_pts->size() == m_pvs->size());
             assert(m_pvs->size() > 0);
 
-            if ((m_n == 0) && (t <= (*m_pts)[0]))
+            int n = m_n;
+
+            if ((n == 0) && (t <= (*m_pts)[0]))
                 return (*m_pvs)[0];
 
-            if (t >= (*m_pts)[m_pts->size()-1])
+            if (t >= (*m_pts)[m_pts->size()-1]) {
+                if (auto_increase) {
+                    m_n = n;
+                }
                 return (*m_pvs)[m_pvs->size()-1];
+            }
 
-            while ((m_n+1 < m_pts->size()-1) && (t > (*m_pts)[m_n+1]))
-                m_n++;
+            while ((n+1 < m_pts->size()-1) && (t > (*m_pts)[n+1]))
+                n++;
 
-            if (m_n >= m_pts->size()-1)
+            if (n >= m_pts->size()-1) {
+                if (auto_increase) {
+                    m_n = n;
+                }
                 return (*m_pvs)[m_pvs->size()-1];
+            }
 
-            assert(m_n < m_pts->size());
-            assert(m_n+1 < m_pts->size());
+            assert(n < m_pts->size());
+            assert(n+1 < m_pts->size());
 
-            float g = static_cast<float>((t-(*m_pts)[m_n]) / ((*m_pts)[m_n+1]-(*m_pts)[m_n]));
+            float g = static_cast<float>((t-(*m_pts)[n]) / ((*m_pts)[n+1]-(*m_pts)[n]));
 
-            return (1.0f-g)*(*m_pvs)[m_n] + g*(*m_pvs)[m_n+1];
+            if (auto_increase) {
+                m_n = n;
+            }
+
+            return (1.0f-g)*(*m_pvs)[n] + g*(*m_pvs)[n+1];
         }
     };
 
