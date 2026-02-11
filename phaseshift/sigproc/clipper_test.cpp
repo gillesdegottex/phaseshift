@@ -10,7 +10,7 @@
 
 #include <string>
 
-#include <catch2/catch_test_macros.hpp>
+#include <snitch/snitch.hpp>
 
 TEST_CASE("clipper", "[clipper]") {
     phaseshift::dev::check_compilation_options();

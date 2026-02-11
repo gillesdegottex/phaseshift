@@ -9,10 +9,31 @@
 #include <phaseshift/containers/ringbuffer.h>
 #include <phaseshift/containers/vector.h>
 
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_approx.hpp>
+#include <snitch/snitch.hpp>
 
 #include <cmath>
+
+static bool approx_equal(float a, float b, float eps = 1e-5f) {
+    return std::fabs(a - b) <= eps;
+}
+
+namespace Catch {
+    struct Approx {
+        float value;
+        float epsilon;
+
+        explicit Approx(float v) : value(v), epsilon(1e-5f) {
+        }
+    };
+
+    inline bool operator==(float lhs, const Approx& rhs) {
+        return approx_equal(lhs, rhs.value, rhs.epsilon);
+    }
+
+    inline bool operator==(const Approx& lhs, float rhs) {
+        return approx_equal(rhs, lhs.value, lhs.epsilon);
+    }
+}
 
 // Helper to create a ringbuffer in a wrapped state
 // Fills rb so m_front is at wrap_offset from the start

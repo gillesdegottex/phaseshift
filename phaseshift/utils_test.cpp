@@ -7,7 +7,7 @@
 
 #include <phaseshift/utils.h>
 
-#include <catch2/catch_test_macros.hpp>
+#include <snitch/snitch.hpp>
 
 TEST_CASE("utils", "[compilation]") {
     phaseshift::dev::check_compilation_options();

@@ -10,7 +10,7 @@
 
 #include <string>
 
-#include <catch2/catch_test_macros.hpp>
+#include <snitch/snitch.hpp>
 
 void require_common(const phaseshift::lookup_table::validation_stats& stats) {
     REQUIRE(!std::isnan(stats.abserr_mean));

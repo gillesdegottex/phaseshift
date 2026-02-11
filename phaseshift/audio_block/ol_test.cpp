@@ -7,9 +7,8 @@
 
 #include <phaseshift/utils.h>
 #include <phaseshift/audio_block/ol.h>
-#include <phaseshift/dev/catch2_extra.h>
 
-#include <catch2/catch_test_macros.hpp>
+#include <snitch/snitch.hpp>
 
 TEST_CASE("audio_block_ol_proc_reset", "[audio_block_ol_proc_reset]") {
     phaseshift::dev::check_compilation_options();

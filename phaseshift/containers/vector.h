@@ -185,6 +185,14 @@ namespace phaseshift {
             assert(n < m_size);
             return m_data[n];
         }
+        value_type operator[](size_t n) const {
+            assert(static_cast<int>(n) < m_size);
+            return m_data[n];
+        }
+        value_type& operator[](size_t n) {
+            assert(static_cast<int>(n) < m_size);
+            return m_data[n];
+        }
 
         inline void resize(int size) {
             assert(size <= m_size_max);

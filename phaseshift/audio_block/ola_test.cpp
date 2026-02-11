@@ -6,9 +6,8 @@
 //     https://github.com/gillesdegottex/phaseshift
 
 #include <phaseshift/audio_block/ola.h>
-#include <phaseshift/dev/catch2_extra.h>
 
-#include <catch2/catch_test_macros.hpp>
+#include <snitch/snitch.hpp>
 
 TEST_CASE("audio_block_ola_builder_test", "[audio_block_ola_builder_test]") {
     phaseshift::dev::check_compilation_options();

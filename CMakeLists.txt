@@ -170,10 +170,6 @@ find_package(PkgConfig REQUIRED)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/)
 
-# This variable exposes to any parent project sources that might be necessary to build tests
-# (it is _not_ included in the phaseshift lib!)
-set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS})
-
   # ACBench -------------------------------------------------------------------
   message(STATUS)
   message(STATUS "* ACBench")
@@ -272,10 +268,6 @@ if (PHASESHIFT_SUPPORT_SNDFILE_LOCAL)
   add_dependencies(${PROJECT_NAME} libsndfile_local )
 endif()
 
-# Set test source file (catch2_extra.cpp is always needed for tests)
-set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} ${CMAKE_CURRENT_SOURCE_DIR}/phaseshift/dev/catch2_extra.cpp)
-
-
 set_target_properties(phaseshift
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/"
@@ -309,36 +301,43 @@ set_target_properties(phaseshift
       set(PHASESHIFT_TEST_EXTRA_LIBS -lpthread)
     endif()
 
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/Catch2)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/snitch)
 
     add_executable(phaseshift_utils_test phaseshift/utils_test.cpp)
-    target_link_libraries(phaseshift_utils_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_utils_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_utils_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_utils_test COMMAND phaseshift_utils_test)
 
     add_executable(phaseshift_ringbuffer_test phaseshift/containers/ringbuffer_test.cpp)
-    target_link_libraries(phaseshift_ringbuffer_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_ringbuffer_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_ringbuffer_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_ringbuffer_test COMMAND phaseshift_ringbuffer_test)
 
-    add_executable(phaseshift_audio_block_ol_test phaseshift/audio_block/ol_test.cpp ${PHASESHIFT_SOURCES_TESTS})
-    target_link_libraries(phaseshift_audio_block_ol_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    add_executable(phaseshift_audio_block_ol_test phaseshift/audio_block/ol_test.cpp)
+    target_link_libraries(phaseshift_audio_block_ol_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_audio_block_ol_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_audio_block_ol_test COMMAND phaseshift_audio_block_ol_test)
 
-    add_executable(phaseshift_audio_block_ola_test phaseshift/audio_block/ola_test.cpp ${PHASESHIFT_SOURCES_TESTS})
-    target_link_libraries(phaseshift_audio_block_ola_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    add_executable(phaseshift_audio_block_ola_test phaseshift/audio_block/ola_test.cpp)
+    target_link_libraries(phaseshift_audio_block_ola_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_audio_block_ola_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_audio_block_ola_test COMMAND phaseshift_audio_block_ola_test)
 
     add_executable(phaseshift_lookup_table_test phaseshift/lookup_table_test.cpp)
-    target_link_libraries(phaseshift_lookup_table_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_lookup_table_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_lookup_table_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_lookup_table_test COMMAND phaseshift_lookup_table_test)
 
     add_executable(phaseshift_lookup_table_clipper_test phaseshift/sigproc/clipper_test.cpp)
-    target_link_libraries(phaseshift_lookup_table_clipper_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+    target_link_libraries(phaseshift_lookup_table_clipper_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_lookup_table_clipper_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_lookup_table_clipper_test COMMAND phaseshift_lookup_table_clipper_test)
 
     # libsndfile test
     if((PHASESHIFT_SUPPORT_SNDFILE) OR (PHASESHIFT_SUPPORT_SNDFILE_LOCAL))
         add_executable(phaseshift_libsndfile_test phaseshift/libsndfile_test.cpp)
-        target_link_libraries(phaseshift_libsndfile_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} Catch2::Catch2WithMain)
+        target_link_libraries(phaseshift_libsndfile_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+        target_compile_features(phaseshift_libsndfile_test PRIVATE cxx_std_20)
         add_test(NAME phaseshift_libsndfile_test COMMAND phaseshift_libsndfile_test)
     endif()
   endif()
@@ -356,7 +355,6 @@ message(STATUS "  CMAKE_C_FLAGS_RELEASE=${CMAKE_C_FLAGS_RELEASE}")
 message(STATUS "  CMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE}")
 
 if (NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
-  set(PHASESHIFT_SOURCES_TESTS ${PHASESHIFT_SOURCES_TESTS} PARENT_SCOPE)
   set(PHASESHIFT_INSTALL_FILES ${PHASESHIFT_INSTALL_FILES} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_ARCH ${PHASESHIFT_BUILD_ARCH} PARENT_SCOPE)
   set(PHASESHIFT_BUILD_DEVICE_ARCH ${PHASESHIFT_BUILD_DEVICE_ARCH} PARENT_SCOPE)
