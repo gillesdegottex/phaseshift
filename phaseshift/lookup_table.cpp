@@ -18,7 +18,7 @@ phaseshift::lookup_table::~lookup_table() {
 // Inheriting classes -----------------------------------------------------------
 
 phaseshift::lookup_table_lin012db::lookup_table_lin012db() {
-    phaseshift::lookup_table::initialize(this, phaseshift::float32::eps(), 1.0f, 300*4);
+    phaseshift::lookup_table::initialize(this, std::numeric_limits<float>::epsilon(), 1.0f, 300*4);
 }
 
 phaseshift::lookup_table_db2lin01::lookup_table_db2lin01() {

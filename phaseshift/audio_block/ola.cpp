@@ -656,13 +656,13 @@ void phaseshift::dev::audio_block_ola_builder_test_singlethread() {
 
     const std::vector<test_params> test_combinations = {
         // Standard combinations
-        {44100, 220, 882, 256},
-        {16000, 64, 512, 32},
+        {44100.0f, 220, 882, 256},
+        {16000.0f, 64, 512, 32},
 
         // More edgy
-        {8000,  1, 3, 2},
-        {22050, 256, 384, 128},
-        {96000, 96, 4800, 1024},
+        {8000.0f,  1, 3, 2},
+        {22050.0f, 256, 384, 128},
+        {96000.0f, 96, 4800, 1024},
     };
 
     auto pbuilder = new phaseshift::ola_builder();
