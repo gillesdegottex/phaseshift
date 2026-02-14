@@ -333,6 +333,26 @@ set_target_properties(phaseshift
     target_compile_features(phaseshift_lookup_table_clipper_test PRIVATE cxx_std_20)
     add_test(NAME phaseshift_lookup_table_clipper_test COMMAND phaseshift_lookup_table_clipper_test)
 
+    add_executable(phaseshift_sigproc_test phaseshift/sigproc/sigproc_test.cpp)
+    target_link_libraries(phaseshift_sigproc_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_sigproc_test PRIVATE cxx_std_20)
+    add_test(NAME phaseshift_sigproc_test COMMAND phaseshift_sigproc_test)
+
+    add_executable(phaseshift_window_functions_test phaseshift/sigproc/window_functions_test.cpp)
+    target_link_libraries(phaseshift_window_functions_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_window_functions_test PRIVATE cxx_std_20)
+    add_test(NAME phaseshift_window_functions_test COMMAND phaseshift_window_functions_test)
+
+    add_executable(phaseshift_auditory_test phaseshift/sigproc/auditory_test.cpp)
+    target_link_libraries(phaseshift_auditory_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_auditory_test PRIVATE cxx_std_20)
+    add_test(NAME phaseshift_auditory_test COMMAND phaseshift_auditory_test)
+
+    add_executable(phaseshift_time_elapsed_summary_test phaseshift/dev/time_elapsed_summary_test.cpp)
+    target_link_libraries(phaseshift_time_elapsed_summary_test PRIVATE phaseshift ${PHASESHIFT_TEST_EXTRA_LIBS} snitch::snitch)
+    target_compile_features(phaseshift_time_elapsed_summary_test PRIVATE cxx_std_20)
+    add_test(NAME phaseshift_time_elapsed_summary_test COMMAND phaseshift_time_elapsed_summary_test)
+
     # libsndfile test
     if((PHASESHIFT_SUPPORT_SNDFILE) OR (PHASESHIFT_SUPPORT_SNDFILE_LOCAL))
         add_executable(phaseshift_libsndfile_test phaseshift/libsndfile_test.cpp)
