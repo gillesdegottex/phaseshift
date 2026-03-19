@@ -176,7 +176,7 @@ namespace phaseshift {
         win.resize(N);
 
         double pialpha = M_PI * alpha;
-        double eps = phaseshift::float32::eps();
+        double eps = std::numeric_limits<float>::epsilon();
 
         double oneover_mbfk_pialpha = 1.0f / modified_bessel_firstkind_zeroorder<double>(pialpha, eps);
         double win_sum = 0.0f;

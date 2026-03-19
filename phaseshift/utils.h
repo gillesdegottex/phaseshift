@@ -135,30 +135,7 @@ namespace phaseshift {
         return dftlen;
     }
 
-    // // Shortcuts TODO rm
-    // namespace int32 {
-    //     // inline constexpr int size()  {return sizeof(int32_t);}
-    //     inline constexpr int32_t (min)()   {return (std::numeric_limits<int32_t>::min)();}
-    //     inline constexpr int32_t (max)()   {return (std::numeric_limits<int32_t>::max)();}
-    // }
-    // namespace int64 {
-    //     // inline constexpr int size()  {return sizeof(int64_t);}
-    //     inline constexpr int64_t (min)()   {return (std::numeric_limits<int64_t>::min)();}
-    //     inline constexpr int64_t (max)()   {return (std::numeric_limits<int64_t>::max)();}
-    // }
-    namespace float32 {
-        inline constexpr int size()  {return sizeof(float);}
-        inline constexpr double eps()   {return std::numeric_limits<float>::epsilon();}
-        inline constexpr double (min)()   {return (std::numeric_limits<float>::min)();}
-        inline constexpr double (max)()   {return (std::numeric_limits<float>::max)();}
-    }
-    namespace float64 {
-        inline constexpr int size()  {return sizeof(double);}
-        inline constexpr double eps()   {return std::numeric_limits<double>::epsilon();}
-        inline constexpr double (min)()   {return (std::numeric_limits<double>::min)();}
-        inline constexpr double (max)()   {return (std::numeric_limits<double>::max)();}
-    }
-
+ 
     static const float twopi = 2.0f * static_cast<float>(M_PI);
     static const float oneover_twopi = 1.0f/(2.0f * static_cast<float>(M_PI));
     static const float piovertwo = static_cast<float>(M_PI) / 2.0f;
@@ -178,7 +155,7 @@ namespace phaseshift {
         }
 
         template<class datastruct_ref, class datastruct_test>
-        bool signals_equal_strictly(const datastruct_ref& ref, const datastruct_test& test, double threshold = phaseshift::float32::eps()) {
+        bool signals_equal_strictly(const datastruct_ref& ref, const datastruct_test& test, double threshold = std::numeric_limits<float>::epsilon()) {
             if (int(ref.size()) != int(test.size())) {
                 std::cerr << "ERROR: signals_equal_strictly: Signals have different length: " << ref.size() << " vs. " << test.size() << std::endl;
                 return false;

@@ -86,7 +86,7 @@ namespace phaseshift {
                 stats.abserr_mean += std::abs(err);
 
                 double relerr;
-                if (std::abs(ref) < 2*phaseshift::float32::eps()) relerr = err;
+                if (std::abs(ref) < 2*std::numeric_limits<float>::epsilon()) relerr = err;
                 else             relerr = err/ref;
                 stats.relerr_max = std::max<double>(stats.relerr_max, std::abs(relerr));
                 stats.relerr_mean += std::abs(relerr);

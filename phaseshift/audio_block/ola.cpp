@@ -72,7 +72,7 @@ int phaseshift::ola::output_one_frame(phaseshift::ringbuffer<float>* pout, int n
 
     // Normalize and flush the samples
     for (int n = 0; n < nb_samples_to_output_remains; ++n) {
-        if (m_out_sum_win[n] < 2*phaseshift::float32::eps()) {
+        if (m_out_sum_win[n] < 2*std::numeric_limits<float>::epsilon()) {
             m_out_sum_win[n] = 1.0f;
             m_failure_status.nb_imperfect_reconstruction++;
         }
