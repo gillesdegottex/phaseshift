@@ -30,10 +30,61 @@ inline void ndarray2ringbuffer(const nb::ndarray<>& _in, phaseshift::ringbuffer<
     // TODO(GD) Remove extra copy by providing the buffer to the phaseshift::ringbuffer ctor
     const int in_size = static_cast<int>(_in.size());
     in->resize_allocation(in_size);
+    
+    // Check if the array is C-contiguous
+    // For a C-contiguous array, stride[i] should equal product of all dimensions after i
+    // For a 1D array or a 1D view of a 2D array (like sig[:, 0]), we need to check the stride
+    // A 1D view from slicing a 2D array will have ndim() == 1 but stride(0) != 1
+    bool is_c_contiguous = true;
+    if (_in.ndim() == 1) {
+        // 1D array is contiguous only if stride(0) == 1
+        // A sliced view like sig[:, 0] will have stride(0) == original_width
+        is_c_contiguous = (_in.stride(0) == 1);
+    } else if (_in.ndim() == 2) {
+        // For 2D array, C-contiguous means stride[0] == shape[1] and stride[1] == 1
+        int64_t expected_stride_0 = _in.shape(1);
+        int64_t expected_stride_1 = 1;
+        if (_in.stride(0) != expected_stride_0 || _in.stride(1) != expected_stride_1) {
+            is_c_contiguous = false;
+        }
+    } else {
+        // For higher dimensions, check all strides
+        for (size_t i = 0; i < (size_t)_in.ndim(); ++i) {
+            int64_t expected_stride = 1;
+            for (int j = _in.ndim() - 1; j > (int)i; --j) {
+                expected_stride *= _in.shape(j);
+            }
+            if (_in.stride(i) != expected_stride) {
+                is_c_contiguous = false;
+                break;
+            }
+        }
+    }
+    
     if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 32) {
-        in->push_back(static_cast<const float*>(_in.data()), in_size);
+        if (is_c_contiguous) {
+            // Fast path: contiguous array, can use memcpy
+            in->push_back(static_cast<const float*>(_in.data()), in_size);
+        } else {
+            // Slow path: non-contiguous array, must read element by element using strides
+            const float* data = static_cast<const float*>(_in.data());
+            // For a 1D view of a 2D array, stride(0) gives the element stride
+            int64_t stride_elements = _in.stride(0);
+            for (int k = 0; k < in_size; ++k) {
+                in->push_back(data[k * stride_elements]);
+            }
+        }
     } else if (_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float && _in.dtype().bits == 64) {
-        in->push_back(static_cast<const double*>(_in.data()), in_size);
+        if (is_c_contiguous) {
+            in->push_back(static_cast<const double*>(_in.data()), in_size);
+        } else {
+            // Slow path: non-contiguous array, must read element by element using strides
+            const double* data = static_cast<const double*>(_in.data());
+            int64_t stride_elements = _in.stride(0);
+            for (int k = 0; k < in_size; ++k) {
+                in->push_back(data[k * stride_elements]);
+            }
+        }
     } else {
         assert(_in.dtype().code == (uint8_t)nb::dlpack::dtype_code::Float  && "Only float32 or float64 types supported.");
         assert(((_in.dtype().bits == 32) || (_in.dtype().bits == 64)) && "Only float32 or float64 types supported.");
