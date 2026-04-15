@@ -136,9 +136,9 @@ namespace phaseshift {
     }
 
  
-    static const float twopi = 2.0f * static_cast<float>(M_PI);
-    static const float oneover_twopi = 1.0f/(2.0f * static_cast<float>(M_PI));
-    static const float piovertwo = static_cast<float>(M_PI) / 2.0f;
+    static constexpr float twopi = 2.0f * static_cast<float>(M_PI);
+    static constexpr float oneover_twopi = 1.0f/(2.0f * static_cast<float>(M_PI));
+    static constexpr float piovertwo = static_cast<float>(M_PI) / 2.0f;
 
     //! Preferes signed in order to be able to check for overflow or inconsistency
     typedef int64_t globalcursor_t;

@@ -201,10 +201,10 @@ namespace phaseshift {
             assert(fs() > 0);
             proc_time_start();
 
-            size_t read_samples_total = 0;
+            int read_samples_total = 0;
             int written_frames_total = 0;
-            while (read_samples_total < in.size()) {
-                int chunk_size = std::min<size_t>(in.size()-read_samples_total, m_chunk_size_max);
+            while (read_samples_total < int(in.size())) {
+                int chunk_size = std::min<int>(in.size()-read_samples_total, m_chunk_size_max);
                 for (int n = 0; n < chunk_size; ++n) {
                     m_chunk[n] = in[read_samples_total + n];
                 }

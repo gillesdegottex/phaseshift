@@ -41,8 +41,8 @@ namespace phaseshift {
     };
     static lookup_table_clipper01 g_clipper_lt;
 
-    static const float clipper_knee_def = 0.66f;
-    static const float clipper_limit_def = 127.0f/128;  // 8-bit signed upper limit (=0.9921875)
+    static constexpr float clipper_knee_def = 0.66f;
+    static constexpr float clipper_limit_def = 127.0f/128;  // 8-bit signed upper limit (=0.9921875)
     template<class array_type>
     void clipper(array_type* in, float knee=clipper_knee_def, float limit=clipper_limit_def) {
 
