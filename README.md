@@ -86,10 +86,10 @@ cpplint from Google
     * Authors: By Erik de Castro Lopo and a solid amount of contributors https://github.com/libsndfile/libsndfile/graphs/contributors
     * License: *Gnu Lesser General Public License* https://github.com/libsndfile/libsndfile/blob/master/COPYING> (thus, dynamic linking is compulsory!)
 
-* Catch2
-    * Website: https://github.com/catchorg/Catch2.git
-    * Authors: By a great amount of contributors https://github.com/catchorg/Catch2/graphs/contributors
-    * License: *Boost Software License - Version 1.0* https://github.com/catchorg/Catch2/blob/devel/LICENSE.txt
+* Snitch
+    * Website: https://github.com/snitch-org/snitch.git
+    * Authors: By a good bunch of contributors https://github.com/snitch-org/snitch/graphs/contributors
+    * License: *Boost Software License - Version 1.0* https://github.com/snitch-org/snitch/blob/main/LICENSE
 
 * nanobind
     * Website: https://github.com/wjakob/nanobind

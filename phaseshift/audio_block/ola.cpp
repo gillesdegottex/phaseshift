@@ -522,6 +522,8 @@ void phaseshift::dev::audio_block_ola_test(phaseshift::ola* pab, int chunk_size,
 
             for (int iter=1; iter <= 3; ++iter) {
 
+                // DOUT << "phaseshift::dev::audio_block_ola_test: mode=" << mode << ", synth=" << synth << ", iter=" << iter << std::endl;
+        
                 // Generate input signal
                 std::uniform_real_distribution<float> phase_dist(0.0f, 1.0f);
                 phaseshift::ringbuffer<float> signal_in;
