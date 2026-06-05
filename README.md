@@ -1,3 +1,5 @@
+WARNING: THIS REPO MOVED TO https://github.com/phoneshift/phaseshift
+
 ![workflow](https://github.com/gillesdegottex/phaseshift/actions/workflows/test-multi-platform.yml/badge.svg)
 
 The goal of phaseshift library is to provide basic construction blocks to build technologies about audio signal processing.
